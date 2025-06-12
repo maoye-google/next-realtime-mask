@@ -1,0 +1,54 @@
+.App {
+  text-align: center;
+  font-family: sans-serif;
+}
+
+.App-header {
+  background-color: #282c34;
+  padding: 20px;
+  color: white;
+  margin-bottom: 20px;
+}
+
+.controls {
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  align-items: center;
+}
+
+.controls input[type="text"], .controls input[type="number"], .controls select {
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+}
+
+.controls button {
+  padding: 8px 15px;
+  border-radius: 4px;
+  border: none;
+  background-color: #61dafb;
+  cursor: pointer;
+}
+
+.video-views {
+  display: flex;
+  justify-content: space-around;
+  margin-bottom: 20px;
+}
+
+.video-container {
+  border: 1px solid #ccc;
+  padding: 10px;
+}
+
+.video-container h2 {
+  margin-top: 0;
+  font-size: 1.2em;
+}
+
+.metrics {
+  font-size: 0.9em;
+  color: #555;
+}

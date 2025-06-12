@@ -1,0 +1,102 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:8000 # Or http://backend:8000 if running purely containerized
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - MONGO_URI=mongodb://mongo:27017/realtime_mask_db
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-service-account.json # Example path
+    depends_on:
+      - kafka
+      - mongo
+    networks:
+      - app-network
+
+  processing-worker:
+    build:
+      context: ./processing
+      dockerfile: Dockerfile
+    volumes:
+      - ./processing:/app
+      - ./gcp-service-account.json:/app/gcp-service-account.json:ro # Mount service account key
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - SEGMENT_ANYTHING_ENDPOINT=http://segment-anything:8001/segment # As per plan
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-service-account.json # Example path
+    depends_on:
+      - kafka
+      - segment-anything # As per plan
+    networks:
+      - app-network
+
+  segment-anything: # As per plan section 6
+    image: supervisely/segment-anything-2 # As per plan section 6
+    ports:
+      - "8001:8001" # Assuming the image exposes on 8001
+    networks:
+      - app-network
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - app-network
+
+  kafka:
+    image: confluentinc/cp-kafka:latest # Or bitnami/kafka
+    ports:
+      - "9092:9092"
+      - "29092:29092" # For external access if needed, adjust listener config
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    depends_on:
+      - zookeeper
+    networks:
+      - app-network
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest # Or bitnami/zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - app-network
+
+volumes:
+  mongo-data:
+
+networks:
+  app-network:
+    driver: bridge
