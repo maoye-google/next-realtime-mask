@@ -7,9 +7,9 @@ services:
     ports:
       - "${PORT:-5173}:80"
     volumes:
-      - ./gcp-service-account.json:/app/gcp-service-account.json:ro
+      - ./credentials:/app/credentials:ro
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-service-account.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/claude-code-sa-key.json
       - PROJECT_ID=${PROJECT_ID}
 
   video-understanding:
@@ -18,9 +18,9 @@ services:
       dockerfile: Dockerfile
     container_name: video-understanding
     ports:
-      - "9002:80"
+      - "${PORT:-9003}:80"
     volumes:
-      - ./gcp-service-account.json:/app/gcp-service-account.json:ro
+      - ./credentials:/app/credentials:ro
     environment:
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-service-account.json
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/claude-code-sa-key.json
       - PROJECT_ID=${PROJECT_ID}
