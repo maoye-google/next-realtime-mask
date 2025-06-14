@@ -11,3 +11,16 @@ services:
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-service-account.json
       - PROJECT_ID=${PROJECT_ID}
+
+  video-understanding:
+    build:
+      context: ./video-understanding
+      dockerfile: Dockerfile
+    container_name: video-understanding
+    ports:
+      - "9002:80"
+    volumes:
+      - ./gcp-service-account.json:/app/gcp-service-account.json:ro
+    environment:
+      - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-service-account.json
+      - PROJECT_ID=${PROJECT_ID}
