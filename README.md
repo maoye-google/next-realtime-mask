@@ -1,44 +1,61 @@
-# Real-time Camera Masking Application
+# Spatial Understanding Frontend Application
 
-This project implements a real-time camera masking web application as outlined in the "Real-time Camera Masking Application: Feature & Architecture Plan".
+This is a standalone React application with AI-powered spatial understanding capabilities.
 
 ## Overview
 
-The application captures video from a user's USB camera, allows the user to specify a target object via a text prompt, identifies and tracks this object, and applies a visual mask (grey out or border highlight) in real-time.
+The application provides an interactive frontend for spatial understanding tasks using modern web technologies and AI integration.
 
-It uses a microservices architecture orchestrated with Docker, comprising:
-- **Frontend**: React.js application for user interaction and video display.
-- **Backend**: Python (FastAPI) API for handling requests, WebSocket communication, and object tracking.
-- **Processing Worker**: Python service for heavy AI/ML tasks (object detection and segmentation) via Kafka.
-- **Kafka**: Message queue for decoupling services.
-- **MongoDB**: Database for storing processing results.
-- **Segment Anything Model**: Containerized service for image segmentation (as per plan).
-- **Vertex AI**: Used for semantic understanding and mask validation.
+**Technology Stack:**
+- **React 19** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **Jotai** for state management
+- **Google Gemini AI** integration
+- **Perfect Freehand** for drawing interactions
 
 ## Local Development Setup
 
 ### Prerequisites
-- Docker and Docker Compose installed.
-- A `.env` file created from `.env.example` with necessary configurations (e.g., Google Cloud credentials).
-  - You will need a `gcp-service-account.json` file for Vertex AI access. Place it in the root or backend/processing directories as configured in `docker-compose.yml` and `.env`.
+- Node.js (v18 or higher)
+- Docker (optional, for containerized deployment)
 
-### Running the Application
+### Running Locally
 
-1.  **Clone the repository (if applicable).**
-2.  **Create a `.env` file:**
-    ```bash
-    cp .env.example .env
-    ```
-    Update the `.env` file with your specific configurations, especially `GOOGLE_APPLICATION_CREDENTIALS` path if you place the JSON key elsewhere or name it differently.
-3.  **Start all services:**
-    ```bash
-    docker compose up --build
-    ```
+1. **Navigate to the application directory:**
+   ```bash
+   cd spatial-understanding-front
+   ```
 
-### Accessing Services
-- **Frontend**: `http://localhost:3000`
-- **Backend API**: `http://localhost:8000` (e.g., `http://localhost:8000/docs` for FastAPI Swagger UI)
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-## Further Development
+3. **Set up environment variables:**
+   Create a `.env.local` file and add your Gemini API key:
+   ```bash
+   GEMINI_API_KEY=your_api_key_here
+   ```
 
-Refer to the "Real-time Camera Masking Application: Feature & Architecture Plan.txt" for detailed data flows, API schemas, and component responsibilities. Implement the TODOs in the placeholder code to build out the full functionality.
+4. **Start the development server:**
+   ```bash
+   npm run dev
+   ```
+
+5. **Access the application:**
+   Open `http://localhost:5173` in your browser
+
+### Building for Production
+
+```bash
+npm run build
+```
+
+### Running with Docker
+
+```bash
+docker compose up --build
+```
+
+The application will be available at `http://localhost:5173`

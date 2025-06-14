@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-python-socketio
-kafka-python
-pymongo
-opencv-python-headless 
-numpy # Often a dependency for OpenCV and image manipulation

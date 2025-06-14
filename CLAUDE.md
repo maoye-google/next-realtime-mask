@@ -11,16 +11,17 @@ docker compose up --build
 This starts the complete microservices stack including frontend, backend, processing worker, Kafka, MongoDB, and Segment Anything Model.
 
 ### Individual Service Development
-- **Frontend**: `cd frontend && npm start` (React development server on port 3000)
+- **Frontend**: `cd frontend && npm run dev` (Vite development server on port 5173)
 - **Backend**: `cd backend && python main.py` (FastAPI server on port 8000)
 - **Processing Worker**: `cd processing && python worker.py`
 
-### Testing
-- **Frontend**: `cd frontend && npm test` (React testing with Jest)
+### Testing and Building
+- **Frontend Dev**: `cd frontend && npm run dev`
 - **Frontend Build**: `cd frontend && npm run build`
+- **Frontend Lint**: `cd frontend && npm run lint`
 
 ### Accessing Services
-- **Frontend**: http://localhost:3000
+- **Frontend**: http://localhost:5173 (or port specified in .env PORT variable)
 - **Backend API**: http://localhost:8000 (Swagger UI at /docs)
 - **MongoDB**: localhost:27017
 - **Kafka**: localhost:9092
@@ -30,10 +31,10 @@ This starts the complete microservices stack including frontend, backend, proces
 This is a real-time camera masking application with a microservices architecture:
 
 ### Core Components
-- **Frontend** (React): Camera access, UI controls, WebSocket streaming to/from backend
+- **Frontend** (React + Vite + TypeScript): Camera access, UI controls, WebSocket streaming to/from backend
 - **Backend** (FastAPI): REST API, WebSocket handling, object tracking with OpenCV, Kafka producer/consumer
 - **Processing Worker** (Python): Kafka consumer for heavy AI tasks, integrates with Segment Anything Model and Vertex AI
-- **Infrastructure**: Kafka (message queue), MongoDB (results storage), Segment Anything Model container
+- **Infrastructure**: Kafka (message queue), MongoDB (results storage), Zookeeper
 
 ### Data Flow
 1. User captures snapshot → Frontend sends to `/api/detect` → Backend produces to Kafka `snapshot-requests`

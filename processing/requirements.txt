@@ -1,3 +1,0 @@
-kafka-python
-requests # For calling SAM endpoint and Vertex AI
-google-cloud-aiplatform>=1.25.0
