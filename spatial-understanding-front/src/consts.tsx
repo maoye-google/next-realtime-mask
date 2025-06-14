@@ -49,27 +49,17 @@ export const segmentationColors = [
 ];
 export const segmentationColorsRgb = segmentationColors.map((c) => hexToRgb(c));
 
-export const imageOptions: string[] = await Promise.all(
-  [
-    'origami.jpg',
-    'pumpkins.jpg',
-    'clock.jpg',
-    'socks.jpg',
-    'breakfast.jpg',
-    'cat.jpg',
-    'spill.jpg',
-    'fruit.jpg',
-    'baklava.jpg',
-  ].map(async (i) =>
-    URL.createObjectURL(
-      await (
-        await fetch(
-          `https://www.gstatic.com/aistudio/starter-apps/bounding-box/${i}`,
-        )
-      ).blob(),
-    ),
-  ),
-);
+export const imageOptions: string[] = [
+  '/images/origami.jpg',
+  '/images/pumpkins.jpg',
+  '/images/clock.jpg',
+  '/images/socks.jpg',
+  '/images/breakfast.jpg',
+  '/images/cat.jpg',
+  '/images/spill.jpg',
+  '/images/fruit.jpg',
+  '/images/baklava.jpg',
+];
 
 export const lineOptions = {
   size: 8,

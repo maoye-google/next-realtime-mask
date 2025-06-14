@@ -39,7 +39,36 @@ import {
 import {lineOptions} from './consts';
 import {getSvgPathFromStroke, loadImage} from './utils';
 
-const ai = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+// Get access token from backend service
+const getAccessToken = async (): Promise<string> => {
+  try {
+    const response = await fetch('/api/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to get access token');
+    }
+    
+    const data = await response.json();
+    return data.accessToken;
+  } catch (error) {
+    console.error('Error getting access token:', error);
+    // Fallback to environment variable for development
+    return process.env.GEMINI_API_KEY || '';
+  }
+};
+
+// Initialize GoogleGenAI with access token
+const initializeAI = async () => {
+  const accessToken = await getAccessToken();
+  return new GoogleGenAI({
+    apiKey: accessToken,
+  });
+};
 export function Prompt() {
   const [temperature, setTemperature] = useAtom(TemperatureAtom);
   const [, setBoundingBoxes2D] = useAtom(BoundingBoxes2DAtom);
@@ -136,6 +165,9 @@ export function Prompt() {
       // Disable thinking when using 2.5 Flash.
       config['thinkingConfig'] = {thinkingBudget: 0};
     }
+
+    // Initialize AI with service account authentication
+    const ai = await initializeAI();
 
     let response = (
       await ai.models.generateContent({

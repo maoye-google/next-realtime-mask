@@ -33,10 +33,19 @@ The application provides an interactive frontend for spatial understanding tasks
    ```
 
 3. **Set up environment variables:**
-   Create a `.env.local` file and add your Gemini API key:
+   Create a `.env.local` file with your configuration:
    ```bash
-   GEMINI_API_KEY=your_api_key_here
+   # For Service Account authentication (recommended for production)
+   GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-account.json
+   GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+   
+   # Fallback API Key for development
+   GEMINI_API_KEY=your-gemini-api-key
    ```
+   
+   **Authentication Options:**
+   - **Service Account (Production):** Place your GCP service account JSON file in the root directory
+   - **API Key (Development):** Use the `GEMINI_API_KEY` for quick development setup
 
 4. **Start the development server:**
    ```bash
