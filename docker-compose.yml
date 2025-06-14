@@ -10,4 +10,4 @@ services:
       - ./gcp-service-account.json:/app/gcp-service-account.json:ro
     environment:
       - GOOGLE_APPLICATION_CREDENTIALS=/app/gcp-service-account.json
-      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - PROJECT_ID=${PROJECT_ID}

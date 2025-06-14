@@ -58,7 +58,7 @@ This is a real-time camera masking application with a microservices architecture
 
 ### Configuration Requirements
 - Google Cloud service account JSON key for Vertex AI access
-- Environment variables: `GOOGLE_CLOUD_PROJECT`, `GOOGLE_APPLICATION_CREDENTIALS`
+- Environment variables: `PROJECT_ID`, `GOOGLE_APPLICATION_CREDENTIALS`
 - Kafka and MongoDB connection strings in docker-compose.yml
 
 ## Working with the Codebase

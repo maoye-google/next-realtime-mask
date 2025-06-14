@@ -16,7 +16,7 @@ export default async function handler(req, res) {
     
     const auth = new GoogleAuth({
       scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-      projectId: process.env.GOOGLE_CLOUD_PROJECT,
+      projectId: process.env.PROJECT_ID,
       keyFilename: process.env.GOOGLE_APPLICATION_CREDENTIALS,
     });
     

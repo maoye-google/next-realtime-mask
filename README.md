@@ -37,7 +37,7 @@ The application provides an interactive frontend for spatial understanding tasks
    ```bash
    # For Service Account authentication (recommended for production)
    GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-account.json
-   GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+   PROJECT_ID=your-gcp-project-id
    
    # Fallback API Key for development
    GEMINI_API_KEY=your-gemini-api-key

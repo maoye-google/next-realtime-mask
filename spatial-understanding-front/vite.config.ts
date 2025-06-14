@@ -6,7 +6,7 @@ export default defineConfig(({ mode }) => {
     return {
       define: {
         'process.env.GOOGLE_APPLICATION_CREDENTIALS': JSON.stringify(env.GOOGLE_APPLICATION_CREDENTIALS),
-        'process.env.GOOGLE_CLOUD_PROJECT': JSON.stringify(env.GOOGLE_CLOUD_PROJECT),
+        'process.env.PROJECT_ID': JSON.stringify(env.PROJECT_ID),
         'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY)
       },
       resolve: {
