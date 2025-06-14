@@ -214,6 +214,35 @@ main {
   margin-top: 10px;
 }
 
+.modelSelector {
+  margin-bottom: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.modelSelector label {
+  font-size: 12px;
+  color: var(--text);
+  font-weight: bold;
+}
+
+.modelDropdown {
+  padding: 8px 12px;
+  background: var(--highlight);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-family: "Space Mono", monospace;
+  font-size: 14px;
+  width: 100%;
+}
+
+.modelDropdown:focus {
+  outline: none;
+  border-color: var(--link);
+}
+
 .generateButton {
   padding: 12px 20px;
   background: var(--highlight);

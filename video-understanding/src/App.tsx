@@ -28,6 +28,12 @@ import VideoPlayer from './VideoPlayer.jsx';
 
 const chartModes = Object.keys(modes.Chart.subModes);
 
+const modelOptions = [
+  { value: 'gemini-2.5-pro-preview-06-05', label: 'Gemini-2.5-Pro' },
+  { value: 'gemini-2.5-flash-preview-05-20', label: 'Gemini-2.5-Flash' },
+  { value: 'gemini-2.0-flash-lite-001', label: 'Gemini-2.0-Flash-Lite' },
+];
+
 export default function App() {
   const [vidUrl, setVidUrl] = useState(null);
   const [file, setFile] = useState(null);
@@ -43,6 +49,7 @@ export default function App() {
   const [chartMode, setChartMode] = useState(chartModes[0]);
   const [chartPrompt, setChartPrompt] = useState('');
   const [chartLabel, setChartLabel] = useState('');
+  const [selectedModel, setSelectedModel] = useState(modelOptions[2].value);
   const [theme] = useState(
     window.matchMedia('(prefers-color-scheme: dark)').matches
       ? 'dark'
@@ -79,6 +86,7 @@ export default function App() {
           setTimecodeList(timecodes),
       }),
       file,
+      selectedModel,
     );
 
     const call = resp.functionCalls?.[0];
@@ -174,6 +182,20 @@ export default function App() {
                         />
                       </>
                     )}
+                    <div className="modelSelector">
+                      <label htmlFor="model-select">Model:</label>
+                      <select
+                        id="model-select"
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        className="modelDropdown">
+                        {modelOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <button
                       className="button generateButton"
                       onClick={() => onModeSelect(selectedMode)}
@@ -212,6 +234,20 @@ export default function App() {
                     </div>
                   </div>
                   <div>
+                    <div className="modelSelector">
+                      <label htmlFor="model-select-main">Model:</label>
+                      <select
+                        id="model-select-main"
+                        value={selectedModel}
+                        onChange={(e) => setSelectedModel(e.target.value)}
+                        className="modelDropdown">
+                        {modelOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                     <button
                       className="button generateButton"
                       onClick={() => onModeSelect(selectedMode)}>

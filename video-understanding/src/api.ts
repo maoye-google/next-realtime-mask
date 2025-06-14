@@ -4,20 +4,32 @@
 */
 /* tslint:disable */
 
-import {FunctionDeclaration, GoogleGenAI, Type} from '@google/genai';
+import {FunctionDeclaration, GoogleGenAI} from '@google/genai';
 
 const systemInstruction = `When given a video and a query, call the relevant \
 function only once with the appropriate timecodes and text for the video`;
 
-const client = new GoogleGenAI({apiKey: process.env.GEMINI_API_KEY});
+// For frontend applications, we'll use API key authentication as primary method
+// Service account authentication should be handled by the backend/proxy
+// 
+// In production, consider implementing a backend proxy that:
+// 1. Handles service account authentication server-side
+// 2. Forwards requests to Vertex AI
+// 3. Returns responses to the frontend
+//
+// For now, using API key authentication which works in browser environment
+const client = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY || process.env.API_KEY,
+});
 
 async function generateContent(
   text: string,
   functionDeclarations: FunctionDeclaration[],
-  file: Type.Blob,
+  file: any,
+  model: string = 'gemini-2.0-flash-exp',
 ) {
   const response = await client.models.generateContent({
-    model: 'gemini-2.0-flash-exp',
+    model,
     contents: [
       {
         role: 'user',
@@ -55,11 +67,11 @@ async function uploadFile(file: File) {
   console.log('Uploaded.');
   console.log('Getting...');
   let getFile = await client.files.get({
-    name: uploadedFile.name,
+    name: uploadedFile.name || '',
   });
   while (getFile.state === 'PROCESSING') {
     getFile = await client.files.get({
-      name: uploadedFile.name,
+      name: uploadedFile.name || '',
     });
     console.log(`current file status: ${getFile.state}`);
     console.log('File is still processing, retrying in 5 seconds');
