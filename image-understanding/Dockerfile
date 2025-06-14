@@ -1,4 +1,4 @@
-# Multi-stage build for spatial-understanding-front
+# Multi-stage build for image-understanding
 FROM node:18-alpine AS build
 
 WORKDIR /app

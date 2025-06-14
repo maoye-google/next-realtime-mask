@@ -1,9 +1,9 @@
 services:
-  spatial-understanding-front:
+  image-understanding:
     build:
-      context: ./spatial-understanding-front
+      context: ./image-understanding
       dockerfile: Dockerfile
-    container_name: spatial-understanding-front
+    container_name: image-understanding
     ports:
       - "${PORT:-5173}:80"
     volumes:

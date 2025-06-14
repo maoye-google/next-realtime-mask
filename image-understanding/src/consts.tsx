@@ -50,15 +50,15 @@ export const segmentationColors = [
 export const segmentationColorsRgb = segmentationColors.map((c) => hexToRgb(c));
 
 export const imageOptions: string[] = [
-  '/images/origami.jpg',
-  '/images/pumpkins.jpg',
-  '/images/clock.jpg',
-  '/images/socks.jpg',
-  '/images/breakfast.jpg',
-  '/images/cat.jpg',
-  '/images/spill.jpg',
-  '/images/fruit.jpg',
-  '/images/baklava.jpg',
+  './assets/origami.jpg',
+  './assets/pumpkins.jpg',
+  './assets/clock.jpg',
+  './assets/socks.jpg',
+  './assets/breakfast.jpg',
+  './assets/cat.jpg',
+  './assets/spill.jpg',
+  './assets/fruit.jpg',
+  './assets/baklava.jpg',
 ];
 
 export const lineOptions = {
