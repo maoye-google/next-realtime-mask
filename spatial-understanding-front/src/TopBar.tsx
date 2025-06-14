@@ -18,7 +18,8 @@
 // limitations under the License.
 
 import {useAtom} from 'jotai';
-import {DetectTypeAtom, HoverEnteredAtom, RevealOnHoverModeAtom} from './atoms';
+import {DetectTypeAtom, HoverEnteredAtom, RevealOnHoverModeAtom, SelectedModelAtom} from './atoms';
+import {modelOptions} from './consts';
 import {useResetState} from './hooks';
 
 export function TopBar() {
@@ -26,6 +27,7 @@ export function TopBar() {
   const [revealOnHover, setRevealOnHoverMode] = useAtom(RevealOnHoverModeAtom);
   const [detectType] = useAtom(DetectTypeAtom);
   const [, setHoverEntered] = useAtom(HoverEnteredAtom);
+  const [selectedModel, setSelectedModel] = useAtom(SelectedModelAtom);
 
   return (
     <div className="flex w-full items-center px-3 py-2 border-b justify-between">
@@ -42,6 +44,25 @@ export function TopBar() {
         </button>
       </div>
       <div className="flex gap-3 items-center">
+        <div className="flex items-center gap-2">
+          <label className="text-sm font-medium">Model:</label>
+          <select
+            value={selectedModel.modelId}
+            onChange={(e) => {
+              const model = modelOptions.find(m => m.modelId === e.target.value);
+              if (model) {
+                setSelectedModel(model);
+              }
+            }}
+            className="bg-[var(--input-color)] border-[var(--border-color)] rounded px-2 py-1 text-sm focus:border-[var(--accent-color)] focus:outline-none"
+          >
+            {modelOptions.map((model) => (
+              <option key={model.modelId} value={model.modelId}>
+                {model.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
         {detectType === '2D bounding boxes' ||
         detectType === 'Segmentation masks' ? (
           <div>

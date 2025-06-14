@@ -69,6 +69,32 @@ export const lineOptions = {
   simulatePressure: false,
 };
 
+export type ModelOption = {
+  displayName: string;
+  modelId: string;
+  description?: string;
+};
+
+export const modelOptions: ModelOption[] = [
+  {
+    displayName: 'Gemini-2.5-Pro',
+    modelId: 'models/gemini-2.5-pro-preview-06-05',
+    description: 'Most capable model for complex reasoning'
+  },
+  {
+    displayName: 'Gemini-2.5-Flash',
+    modelId: 'models/gemini-2.5-flash-preview-05-20',
+    description: 'Fast and efficient for most tasks'
+  },
+  {
+    displayName: 'Gemini-2.0-Flash-Lite',
+    modelId: 'models/gemini-2.0-flash-lite-001',
+    description: 'Lightweight and fast'
+  }
+];
+
+export const defaultModel = modelOptions[1]; // Gemini-2.5-Flash as default
+
 export const defaultPromptParts = {
   '2D bounding boxes': [
     'Show me the positions of',

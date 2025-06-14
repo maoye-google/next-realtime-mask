@@ -23,6 +23,8 @@ import {
   defaultPromptParts,
   defaultPrompts,
   imageOptions,
+  defaultModel,
+  ModelOption,
 } from './consts';
 import {
   BoundingBox2DType,
@@ -91,3 +93,5 @@ export const InitFinishedAtom = atom(true);
 export const BumpSessionAtom = atom(0);
 
 export const IsUploadedImageAtom = atom(false);
+
+export const SelectedModelAtom = atom<ModelOption>(defaultModel);

@@ -32,6 +32,7 @@ import {
   LinesAtom,
   PointsAtom,
   PromptsAtom,
+  SelectedModelAtom,
   ShareStream,
   TemperatureAtom,
   VideoRefAtom,
@@ -85,6 +86,7 @@ export function Prompt() {
   const [targetPrompt, setTargetPrompt] = useState('items');
   const [labelPrompt, setLabelPrompt] = useState('');
   const [showRawPrompt, setShowRawPrompt] = useState(false);
+  const [selectedModel] = useAtom(SelectedModelAtom);
 
   const [prompts, setPrompts] = useAtom(PromptsAtom);
   const [customPrompts, setCustomPrompts] = useAtom(CustomPromptsAtom);
@@ -157,12 +159,12 @@ export function Prompt() {
     } = {
       temperature,
     };
-    // All tasks except for segmentation use 2.0 Flash (for now).
-    let model = 'models/gemini-2.0-flash';
-    if (detectType === 'Segmentation masks') {
-      // Segmentation uses 2.5 Flash.
-      model = 'models/gemini-2.5-flash-preview-04-17';
-      // Disable thinking when using 2.5 Flash.
+    
+    // Use the selected model from the dropdown
+    const model = selectedModel.modelId;
+    
+    // Disable thinking for certain models
+    if (selectedModel.modelId === 'models/gemini-2.5-flash-preview-04-17') {
       config['thinkingConfig'] = {thinkingBudget: 0};
     }
 
@@ -283,9 +285,9 @@ export function Prompt() {
     <div className="flex grow flex-col gap-3">
       <div className="flex justify-between items-center">
         <div className="uppercase">
-          Prompt:{' '}
-          {detectType === 'Segmentation masks'
-            ? 'Gemini 2.5 Flash (no thinking)'
+          Prompt: {selectedModel.displayName}
+          {selectedModel.modelId === 'models/gemini-2.5-flash-preview-04-17'
+            ? ' (no thinking)'
             : null}
         </div>
         <label className="flex gap-2 select-none">
