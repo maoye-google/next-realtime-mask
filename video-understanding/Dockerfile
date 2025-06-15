@@ -24,8 +24,8 @@ COPY --from=build /app/dist /usr/share/nginx/html
 # Create directory for service account file
 RUN mkdir -p /app
 
-# Copy custom nginx configuration if needed
-# COPY nginx.conf /etc/nginx/nginx.conf
+# Copy custom nginx configuration
+COPY nginx.conf /etc/nginx/conf.d/video-understanding.conf
 
 # Expose port 80
 EXPOSE 80
