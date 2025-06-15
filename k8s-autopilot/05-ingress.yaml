@@ -14,8 +14,8 @@ metadata:
     cloud.google.com/neg: '{"ingress": true}'
     # SSL certificate (will be provisioned automatically)
     networking.gke.io/managed-certificates: "media-understanding-ssl"
-    # Force HTTPS redirect once certificate is ready
-    kubernetes.io/ingress.allow-http: "true"
+    # Force HTTPS redirect - disable HTTP access
+    kubernetes.io/ingress.allow-http: "false"
 spec:
   # No TLS section needed for Google-managed certificates
   # The annotation networking.gke.io/managed-certificates handles this
