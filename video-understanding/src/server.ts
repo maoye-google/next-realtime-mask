@@ -7,7 +7,6 @@ import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import compression from 'compression';
-import { GoogleAuth } from 'google-auth-library';
 import { FunctionDeclaration, GoogleGenAI } from '@google/genai';
 import multer from 'multer';
 
@@ -21,15 +20,35 @@ const port = process.env.PORT || 8080;
 const systemInstruction = `When given a video and a query, call the relevant \
 function only once with the appropriate timecodes and text for the video`;
 
-// Initialize Google Auth for Workload Identity
-const auth = new GoogleAuth({
-  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-});
-
-// Initialize GoogleGenAI with proper options object
+// Initialize GoogleGenAI with API key
 const client = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
+
+// Helper function to wait for video file processing
+async function waitForFileProcessing(fileName: string) {
+  let getFile = await client.files.get({ name: fileName });
+
+  const maxRetries = 24; // 24 retries * 5 seconds = 2 minute timeout
+  let attempt = 0;
+  while (getFile.state === 'PROCESSING' && attempt < maxRetries) {
+    await new Promise((resolve) => setTimeout(resolve, 5000));
+    getFile = await client.files.get({ name: fileName });
+    console.log(`Current file status: ${getFile.state}`);
+    attempt++;
+  }
+
+  if (getFile.state === 'PROCESSING') {
+    await client.files.delete({ name: fileName });
+    throw new Error('Video processing timed out');
+  }
+
+  if (getFile.state === 'FAILED') {
+    throw new Error('Video processing failed');
+  }
+
+  return getFile;
+}
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
@@ -66,13 +85,16 @@ app.get('/healthz', (req, res) => {
 
 app.get('/readyz', async (req, res) => {
   try {
-    await auth.getAccessToken();
+    // Check if GEMINI_API_KEY is available
+    if (!process.env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY not configured');
+    }
     res.status(200).json({ status: 'ready' });
   } catch (error) {
     console.error('Readiness check failed:', error);
     res.status(503).json({ 
       status: 'not ready', 
-      error: 'authentication check failed' 
+      error: 'API key not configured' 
     });
   }
 });
@@ -107,30 +129,12 @@ app.post('/api/video/generate', upload.single('video'), async (req, res) => {
       },
     });
 
+    if (!uploadedFile.name) {
+      throw new Error('File upload failed to return a name.');
+    }
+
     console.log('Processing video...');
-    let getFile = await client.files.get({
-      name: uploadedFile.name || '',
-    });
-
-    const maxRetries = 24; // 24 retries * 5 seconds = 2 minute timeout
-    let attempt = 0;
-    while (getFile.state === 'PROCESSING' && attempt < maxRetries) {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      getFile = await client.files.get({
-        name: uploadedFile.name || '',
-      });
-      console.log(`Current file status: ${getFile.state}`);
-      attempt++;
-    }
-
-    if (getFile.state === 'PROCESSING') {
-      await client.files.delete({ name: uploadedFile.name || '' });
-      throw new Error('Video processing timed out');
-    }
-
-    if (getFile.state === 'FAILED') {
-      throw new Error('Video processing failed');
-    }
+    const getFile = await waitForFileProcessing(uploadedFile.name);
 
     const response = await client.models.generateContent({
       model,
@@ -180,30 +184,12 @@ app.post('/api/video/upload', upload.single('video'), async (req, res) => {
       },
     });
 
+    if (!uploadedFile.name) {
+      throw new Error('File upload failed to return a name.');
+    }
+
     console.log('Processing video...');
-    let getFile = await client.files.get({
-      name: uploadedFile.name || '',
-    });
-
-    const maxRetries = 24; // 24 retries * 5 seconds = 2 minute timeout
-    let attempt = 0;
-    while (getFile.state === 'PROCESSING' && attempt < maxRetries) {
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-      getFile = await client.files.get({
-        name: uploadedFile.name || '',
-      });
-      console.log(`Current file status: ${getFile.state}`);
-      attempt++;
-    }
-
-    if (getFile.state === 'PROCESSING') {
-      await client.files.delete({ name: uploadedFile.name || '' });
-      throw new Error('Video processing timed out');
-    }
-
-    if (getFile.state === 'FAILED') {
-      throw new Error('Video processing failed');
-    }
+    const getFile = await waitForFileProcessing(uploadedFile.name);
 
     res.json(getFile);
   } catch (error) {

@@ -15,7 +15,6 @@ spec:
       labels:
         app: video-understanding
     spec:
-      serviceAccountName: workload-identity-sa
       containers:
       - name: video-understanding
         image: gcr.io/PROJECT_ID/video-understanding:v1.0.0
@@ -23,11 +22,11 @@ spec:
         - containerPort: 8080
           name: http
         env:
-        - name: PROJECT_ID
+        - name: GEMINI_API_KEY
           valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: PROJECT_ID
+            secretKeyRef:
+              name: gemini-credentials
+              key: GEMINI_API_KEY
         - name: PORT
           value: "8080"
         livenessProbe:

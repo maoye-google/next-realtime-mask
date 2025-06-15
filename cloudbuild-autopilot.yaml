@@ -12,49 +12,8 @@ steps:
         set -e
         echo "=== Infrastructure Setup ==="
         
-        # Construct service account email
-        SERVICE_ACCOUNT_EMAIL="${_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
-        echo "Using service account: $$SERVICE_ACCOUNT_EMAIL"
-        
-        # Grant Cloud Build service account necessary permissions
-        echo "Setting up Cloud Build service account permissions..."
-        CLOUD_BUILD_SA="$$(gcloud projects describe ${PROJECT_ID} --format='value(projectNumber)')-compute@developer.gserviceaccount.com"
-        echo "Cloud Build service account: $$CLOUD_BUILD_SA"
-        
-        # Grant Secret Manager permissions to Cloud Build service account
-        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-          --member="serviceAccount:$$CLOUD_BUILD_SA" \
-          --role="roles/secretmanager.admin" \
-          --condition=None >/dev/null || echo "Secret Manager admin role already exists"
-        
-        # Ensure service account exists (idempotent)
-        echo "Checking/creating service account..."
-        if ! gcloud iam service-accounts describe $$SERVICE_ACCOUNT_EMAIL --project=${PROJECT_ID} >/dev/null 2>&1; then
-          gcloud iam service-accounts create ${_SERVICE_ACCOUNT_NAME} \
-            --display-name="Media Understanding Service Account" \
-            --project=${PROJECT_ID}
-          echo "✓ Service account created"
-        else
-          echo "✓ Service account already exists"
-        fi
-        
-        # Ensure IAM policy bindings (idempotent)
-        echo "Setting up IAM policies for Vertex AI authentication..."
-        
-        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-          --member="serviceAccount:$$SERVICE_ACCOUNT_EMAIL" \
-          --role="roles/aiplatform.user" \
-          --condition=None >/dev/null || echo "Vertex AI user role already exists"
-        
-        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-          --member="serviceAccount:$$SERVICE_ACCOUNT_EMAIL" \
-          --role="roles/ml.developer" \
-          --condition=None >/dev/null || echo "ML developer role already exists"
-        
-        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
-          --member="serviceAccount:$$SERVICE_ACCOUNT_EMAIL" \
-          --role="roles/storage.objectViewer" \
-          --condition=None >/dev/null || echo "Storage IAM binding already exists"
+        # Simplified setup - no service account management needed for GEMINI_API_KEY authentication
+        echo "Setting up for GEMINI_API_KEY authentication..."
         
         # Create global static IP for ingress (idempotent)
         echo "Setting up static IP for ingress..."
@@ -188,46 +147,24 @@ steps:
         # Ensure namespace exists
         kubectl create namespace ${_K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
         
-        # Option 1: Service Account JSON Key (if _USE_SA_KEY=true)
-        if [ "${_USE_SA_KEY}" = "true" ]; then
-          echo "Setting up Service Account JSON key authentication..."
-          
-          # Create service account key if it doesn't exist in Secret Manager
-          if ! gcloud secrets describe ${_SA_KEY_SECRET_NAME} --project=${PROJECT_ID} >/dev/null 2>&1; then
-            echo "Creating new service account key..."
-            SERVICE_ACCOUNT_EMAIL="${_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
-            gcloud iam service-accounts keys create /tmp/sa-key.json \
-              --iam-account=$$SERVICE_ACCOUNT_EMAIL \
-              --project=${PROJECT_ID}
-            
-            # Store in Secret Manager
-            gcloud secrets create ${_SA_KEY_SECRET_NAME} \
-              --data-file=/tmp/sa-key.json \
-              --project=${PROJECT_ID}
-            
-            rm /tmp/sa-key.json
-            echo "✓ Service account key stored in Secret Manager"
-          fi
-          
-          # Retrieve key from Secret Manager
-          gcloud secrets versions access latest \
-            --secret="${_SA_KEY_SECRET_NAME}" \
-            --project=${PROJECT_ID} > /workspace/sa-key.json
-          
-          # Create/update Kubernetes secret
-          kubectl create secret generic gcp-service-account-key \
-            --namespace=${_K8S_NAMESPACE} \
-            --from-file=key.json=/workspace/sa-key.json \
-            --dry-run=client -o yaml | kubectl apply -f -
-          
-          echo "✓ Kubernetes secret created/updated"
-          rm /workspace/sa-key.json
-          
+        # Create/update Gemini API key secret
+        echo "Setting up GEMINI_API_KEY secret..."
+        
+        if [ -z "${_GEMINI_API_KEY}" ]; then
+          echo "⚠️  Warning: _GEMINI_API_KEY not set. Please set it in Cloud Build substitution variables."
+          echo "Creating placeholder secret that needs to be updated manually."
+          GEMINI_KEY="your-gemini-api-key-here"
         else
-          # Option 2: Workload Identity (recommended)
-          echo "Using Workload Identity (no additional secrets needed)"
-          echo "✓ Workload Identity configuration will be applied with manifests"
+          GEMINI_KEY="${_GEMINI_API_KEY}"
         fi
+        
+        # Create/update Kubernetes secret for Gemini API key
+        kubectl create secret generic gemini-credentials \
+          --namespace=${_K8S_NAMESPACE} \
+          --from-literal=GEMINI_API_KEY="$$GEMINI_KEY" \
+          --dry-run=client -o yaml | kubectl apply -f -
+        
+        echo "✓ Gemini API key secret created/updated"
     waitFor: ['Push Images']
 
   # Deploy to GKE with parameterized manifests
@@ -255,9 +192,7 @@ steps:
           export PROJECT_ID=${PROJECT_ID}
           export SHORT_SHA="latest"  # Use consistent tag with build steps
           export K8S_NAMESPACE=${_K8S_NAMESPACE}
-          export SERVICE_ACCOUNT_EMAIL="${_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
           export CONTAINER_REGISTRY=${_CONTAINER_REGISTRY}
-          export USE_SA_KEY=${_USE_SA_KEY}
           export STATIC_IP_NAME=${_STATIC_IP_NAME}
           export INGRESS_HOSTNAME=${_INGRESS_HOSTNAME}
           
@@ -276,13 +211,7 @@ steps:
             fi
           done
           
-          # Copy and make auth script executable
-          cp apply-auth-method.sh /workspace/
-          chmod +x /workspace/apply-auth-method.sh
-          
-          # Apply authentication method configuration
-          echo "Configuring authentication method (USE_SA_KEY=$${USE_SA_KEY})..."
-          /workspace/apply-auth-method.sh "$${USE_SA_KEY}" "/workspace/processed_k8s"
+          # No authentication script needed - using simple GEMINI_API_KEY
           
           # Apply all processed manifests
           echo "Applying Kubernetes manifests..."
@@ -330,12 +259,8 @@ substitutions:
   _GKE_REGION: 'us-central1'  # Changed from zone to region for Autopilot
   _K8S_NAMESPACE: 'media-understanding'
   
-  # Authentication Method (choose one)
-  _USE_SA_KEY: 'true'  # Set to 'true' to use Service Account JSON key, 'false' for Workload Identity
-  
-  # Service Account Configuration
-  _SERVICE_ACCOUNT_NAME: 'media-understanding-sa'
-  _SA_KEY_SECRET_NAME: 'media-understanding-sa-key'  # Name in Google Secret Manager
+  # Authentication Method - Simple API Key
+  _GEMINI_API_KEY: ''  # Set this to your actual Gemini API key
   
   # Container Registry
   _CONTAINER_REGISTRY: 'gcr.io'  # or 'us-central1-docker.pkg.dev' for Artifact Registry

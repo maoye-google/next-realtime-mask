@@ -17,7 +17,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import {GoogleGenAI} from '@google/genai';
+// Removed GoogleGenAI import - using secure backend proxy
 import {useAtom} from 'jotai';
 import getStroke from 'perfect-freehand';
 import {useState} from 'react';
@@ -40,36 +40,7 @@ import {
 import {lineOptions} from './consts';
 import {getSvgPathFromStroke, loadImage} from './utils';
 
-// Get access token from backend service
-const getAccessToken = async (): Promise<string> => {
-  try {
-    const response = await fetch('/api/auth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to get access token');
-    }
-    
-    const data = await response.json();
-    return data.accessToken;
-  } catch (error) {
-    console.error('Error getting access token:', error);
-    // Fallback to environment variable for development
-    return process.env.GEMINI_API_KEY || '';
-  }
-};
-
-// Initialize GoogleGenAI with access token
-const initializeAI = async () => {
-  const accessToken = await getAccessToken();
-  return new GoogleGenAI({
-    apiKey: accessToken,
-  });
-};
+// No longer need to initialize AI client on frontend - using secure backend proxy
 export function Prompt() {
   const [temperature, setTemperature] = useAtom(TemperatureAtom);
   const [, setBoundingBoxes2D] = useAtom(BoundingBoxes2DAtom);
@@ -82,7 +53,9 @@ export function Prompt() {
   const [lines] = useAtom(LinesAtom);
   const [videoRef] = useAtom(VideoRefAtom);
   const [imageSrc] = useAtom(ImageSrcAtom);
-  const [showCustomPrompt] = useState(false);
+// Removed unused showCustomPrompt state
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [targetPrompt, setTargetPrompt] = useState('items');
   const [labelPrompt, setLabelPrompt] = useState('');
   const [showRawPrompt, setShowRawPrompt] = useState(false);
@@ -99,104 +72,96 @@ export function Prompt() {
     } in "label".`;
 
   async function handleSend() {
-    let activeDataURL;
-    const maxSize = 640;
-    const copyCanvas = document.createElement('canvas');
-    const ctx = copyCanvas.getContext('2d')!;
+    if (isLoading) return;
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      let activeDataURL;
+      const maxSize = 640;
+      const copyCanvas = document.createElement('canvas');
+      const ctx = copyCanvas.getContext('2d')!;
 
-    if (stream) {
-      // screenshare
-      const video = videoRef.current!;
-      const scale = Math.min(
-        maxSize / video.videoWidth,
-        maxSize / video.videoHeight,
-      );
-      copyCanvas.width = video.videoWidth * scale;
-      copyCanvas.height = video.videoHeight * scale;
-      ctx.drawImage(
-        video,
-        0,
-        0,
-        video.videoWidth * scale,
-        video.videoHeight * scale,
-      );
-    } else if (imageSrc) {
-      const image = await loadImage(imageSrc);
-      const scale = Math.min(maxSize / image.width, maxSize / image.height);
-      copyCanvas.width = image.width * scale;
-      copyCanvas.height = image.height * scale;
-      console.log(copyCanvas);
-      ctx.drawImage(image, 0, 0, image.width * scale, image.height * scale);
-    }
-    activeDataURL = copyCanvas.toDataURL('image/png');
-
-    if (lines.length > 0) {
-      for (const line of lines) {
-        const p = new Path2D(
-          getSvgPathFromStroke(
-            getStroke(
-              line[0].map(([x, y]) => [
-                x * copyCanvas.width,
-                y * copyCanvas.height,
-                0.5,
-              ]),
-              lineOptions,
-            ),
-          ),
+      if (stream) {
+        // screenshare
+        const video = videoRef.current!;
+        const scale = Math.min(
+          maxSize / video.videoWidth,
+          maxSize / video.videoHeight,
         );
-        ctx.fillStyle = line[1];
-        ctx.fill(p);
+        copyCanvas.width = video.videoWidth * scale;
+        copyCanvas.height = video.videoHeight * scale;
+        ctx.drawImage(
+          video,
+          0,
+          0,
+          video.videoWidth * scale,
+          video.videoHeight * scale,
+        );
+      } else if (imageSrc) {
+        const image = await loadImage(imageSrc);
+        const scale = Math.min(maxSize / image.width, maxSize / image.height);
+        copyCanvas.width = image.width * scale;
+        copyCanvas.height = image.height * scale;
+        console.log(copyCanvas);
+        ctx.drawImage(image, 0, 0, image.width * scale, image.height * scale);
       }
       activeDataURL = copyCanvas.toDataURL('image/png');
-    }
 
-    const prompt = prompts[detectType];
+      if (lines.length > 0) {
+        for (const line of lines) {
+          const p = new Path2D(
+            getSvgPathFromStroke(
+              getStroke(
+                line[0].map(([x, y]) => [
+                  x * copyCanvas.width,
+                  y * copyCanvas.height,
+                  0.5,
+                ]),
+                lineOptions,
+              ),
+            ),
+          );
+          ctx.fillStyle = line[1];
+          ctx.fill(p);
+        }
+        activeDataURL = copyCanvas.toDataURL('image/png');
+      }
 
-    setHoverEntered(false);
-    const config: {
-      temperature: number;
-      thinkingConfig?: {thinkingBudget: number};
-    } = {
-      temperature,
-    };
-    
-    // Use the selected model from the dropdown
-    const model = selectedModel.modelId;
-    
-    // Disable thinking for certain models
-    if (selectedModel.modelId === 'models/gemini-2.5-flash-preview-04-17') {
-      config['thinkingConfig'] = {thinkingBudget: 0};
-    }
+      const prompt = prompts[detectType];
+      const promptText = is2d ? get2dPrompt() : prompt.join(' ');
 
-    // Initialize AI with service account authentication
-    const ai = await initializeAI();
+      setHoverEntered(false);
+      
+      // Prepare thinking config
+      let thinkingConfig;
+      if (selectedModel.modelId === 'models/gemini-2.5-flash-preview-04-17') {
+        thinkingConfig = {thinkingBudget: 0};
+      }
 
-    let response = (
-      await ai.models.generateContent({
-        model,
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              {
-                inlineData: {
-                  data: activeDataURL.replace('data:image/png;base64,', ''),
-                  mimeType: 'image/png',
-                },
-              },
-              {text: is2d ? get2dPrompt() : prompt.join(' ')},
-            ],
-          },
-        ],
-        config,
-      })
-    ).text;
+      // Call secure backend endpoint
+      const apiResponse = await fetch('/api/image/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageDataUrl: activeDataURL,
+          prompt: promptText,
+          model: selectedModel.modelId,
+          temperature: temperature,
+          thinkingConfig: thinkingConfig,
+        }),
+      });
 
-    if (response.includes('```json')) {
-      response = response.split('```json')[1].split('```')[0];
-    }
-    const parsedResponse = JSON.parse(response);
-    if (detectType === '2D bounding boxes') {
+      if (!apiResponse.ok) {
+        const errorData = await apiResponse.json();
+        throw new Error(errorData.error || `Request failed with status ${apiResponse.status}`);
+      }
+
+      const parsedResponse = await apiResponse.json();
+      
+      // Process the response based on detection type
+      if (detectType === '2D bounding boxes') {
       const formattedBoxes = parsedResponse.map(
         (box: {box_2d: [number, number, number, number]; label: string}) => {
           const [ymin, xmin, ymax, xmax] = box.box_2d;
@@ -279,6 +244,12 @@ export function Prompt() {
       );
       setBoundingBoxes3D(formattedBoxes);
     }
+    } catch (error) {
+      console.error('Failed to send prompt:', error);
+      setError(error instanceof Error ? error.message : 'An unknown error occurred');
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -300,24 +271,7 @@ export function Prompt() {
         </label>
       </div>
       <div className="w-full flex flex-col">
-        {showCustomPrompt ? (
-          <textarea
-            className="w-full bg-[var(--input-color)] rounded-lg resize-none p-4"
-            value={customPrompts[detectType]}
-            onChange={(e) => {
-              const value = e.target.value;
-              const newPrompts = {...customPrompts};
-              newPrompts[detectType] = value;
-              setCustomPrompts(newPrompts);
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                handleSend();
-              }
-            }}
-          />
-        ) : showRawPrompt ? (
+        {showRawPrompt ? (
           <div className="mb-2 text-[var(--text-color-secondary)]">
             {is2d
               ? get2dPrompt()
@@ -372,11 +326,17 @@ export function Prompt() {
           </div>
         )}
       </div>
+      {error && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          Error: {error}
+        </div>
+      )}
       <div className="flex justify-between gap-3">
         <button
-          className="bg-[#3B68FF] px-12 !text-white !border-none"
-          onClick={handleSend}>
-          Send
+          className="bg-[#3B68FF] px-12 !text-white !border-none disabled:opacity-50"
+          onClick={handleSend}
+          disabled={isLoading}>
+          {isLoading ? 'Processing...' : 'Send'}
         </button>
         <label className="flex items-center gap-2">
           temperature:

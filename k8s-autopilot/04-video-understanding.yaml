@@ -16,8 +16,6 @@ spec:
       labels:
         app: video-understanding
     spec:
-      # Conditional: Use serviceAccountName only if NOT using SA key
-      serviceAccountName: workload-identity-sa
       containers:
       - name: video-understanding
         image: ${CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:${SHORT_SHA}
@@ -25,11 +23,11 @@ spec:
         - containerPort: 8080
           name: http
         env:
-        - name: PROJECT_ID
+        - name: GEMINI_API_KEY
           valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: PROJECT_ID
+            secretKeyRef:
+              name: gemini-credentials
+              key: GEMINI_API_KEY
         - name: PORT
           value: "8080"
         - name: NODE_ENV
@@ -37,8 +35,6 @@ spec:
             configMapKeyRef:
               name: app-config
               key: NODE_ENV
-        # Conditional: Only set GOOGLE_APPLICATION_CREDENTIALS if using SA key
-        # This will be handled by a conditional manifest or post-processing
         livenessProbe:
           httpGet:
             path: /healthz
@@ -72,17 +68,6 @@ spec:
             drop:
             - ALL
           readOnlyRootFilesystem: false  # Node.js needs write access for temp files
-        # Conditional volume mounts for SA key (will be added if USE_SA_KEY=true)
-        # volumeMounts:
-        # - name: gcp-sa-key-volume
-        #   mountPath: /var/secrets/google
-        #   readOnly: true
-      # Conditional volumes for SA key (will be added if USE_SA_KEY=true)
-      # volumes:
-      # - name: gcp-sa-key-volume
-      #   secret:
-      #     secretName: gcp-service-account-key
-      #     defaultMode: 0444
 ---
 apiVersion: v1
 kind: Service
