@@ -88,7 +88,7 @@ steps:
         if grep -q "image-understanding" /workspace/changed_services.txt; then
           echo "=== Building image-understanding ==="
           # Ensure SHORT_SHA is set, fallback to git commit SHA
-          docker build -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding:latest ./image-understanding
+          docker build --no-cache -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding:latest ./image-understanding
           echo "✓ image-understanding built successfully with tag: latest"
         else
           echo "⏭️  Skipping image-understanding build"
@@ -105,7 +105,7 @@ steps:
         if grep -q "video-understanding" /workspace/changed_services.txt; then
           echo "=== Building video-understanding ==="
           # Ensure SHORT_SHA is set, fallback to git commit SHA
-          docker build -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:latest ./video-understanding
+          docker build --no-cache -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:latest ./video-understanding
           echo "✓ video-understanding built successfully with tag: latest"
         else
           echo "⏭️  Skipping video-understanding build"

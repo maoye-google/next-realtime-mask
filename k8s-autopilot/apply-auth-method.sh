@@ -56,7 +56,7 @@ if [ "${USE_SA_KEY}" = "true" ]; then
             sed -i 's/      # - name: gcp-sa-key-volume/      - name: gcp-sa-key-volume/' "$deployment_file"
             sed -i 's/      #   secret:/        secret:/' "$deployment_file"
             sed -i 's/      #     secretName: gcp-service-account-key/          secretName: gcp-service-account-key/' "$deployment_file"
-            sed -i 's/      #     defaultMode: 0400/          defaultMode: 0400/' "$deployment_file"
+            sed -i 's/      #     defaultMode: 0444/          defaultMode: 0444/' "$deployment_file"
             
             # Remove serviceAccountName since we're not using Workload Identity
             sed -i '/serviceAccountName: workload-identity-sa/d' "$deployment_file"
