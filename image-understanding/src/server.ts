@@ -21,7 +21,7 @@ const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increase limit for base64 image data
 app.use(compression()); // Enable gzip compression
 
 // Security headers
