@@ -253,6 +253,7 @@ steps:
           
           # Export variables for envsubst - assign built-in Cloud Build variables properly
           export PROJECT_ID=${PROJECT_ID}
+          export SHORT_SHA="latest"  # Use consistent tag with build steps
           export K8S_NAMESPACE=${_K8S_NAMESPACE}
           export SERVICE_ACCOUNT_EMAIL="${_SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
           export CONTAINER_REGISTRY=${_CONTAINER_REGISTRY}
@@ -290,10 +291,25 @@ steps:
           # Wait for rollouts of changed services only
           for service in $$(cat /workspace/changed_services.txt); do
             echo "Waiting for $$service rollout..."
-            kubectl rollout status deployment/$$service \
+            
+            # Check deployment status first
+            kubectl get deployment/$$service --namespace=${_K8S_NAMESPACE} || echo "Deployment not found"
+            
+            # Wait for rollout with increased timeout
+            if kubectl rollout status deployment/$$service \
               --namespace=${_K8S_NAMESPACE} \
-              --timeout=600s
-            echo "✓ $$service deployed successfully"
+              --timeout=900s; then
+              echo "✓ $$service deployed successfully"
+            else
+              echo "❌ $$service rollout failed or timed out"
+              echo "Deployment status:"
+              kubectl describe deployment/$$service --namespace=${_K8S_NAMESPACE}
+              echo "Pod status:"
+              kubectl get pods -l app=$$service --namespace=${_K8S_NAMESPACE} -o wide
+              echo "Pod logs (if available):"
+              kubectl logs -l app=$$service --namespace=${_K8S_NAMESPACE} --tail=50 || echo "No logs available"
+              exit 1
+            fi
           done
           
           echo "✅ Deployment completed successfully!"

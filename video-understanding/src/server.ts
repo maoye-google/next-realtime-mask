@@ -5,10 +5,15 @@
 
 import express from 'express';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import compression from 'compression';
 import { GoogleAuth } from 'google-auth-library';
 import { FunctionDeclaration, GoogleGenAI } from '@google/genai';
 import multer from 'multer';
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 8080;
@@ -21,7 +26,10 @@ const auth = new GoogleAuth({
   scopes: ['https://www.googleapis.com/auth/cloud-platform'],
 });
 
-const client = new GoogleGenAI({ auth });
+// Initialize GoogleGenAI with proper options object
+const client = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
+});
 
 const upload = multer({ 
   storage: multer.memoryStorage(),

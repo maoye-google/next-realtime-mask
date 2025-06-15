@@ -9,14 +9,14 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
-# Copy source code
+# Copy source code and TypeScript configs
 COPY . .
 
 # Build the application
 RUN npm run build
 
-# Compile TypeScript server to JavaScript
-RUN npx tsc src/server.ts --outDir build --moduleResolution node --esModuleInterop --target es2020 --allowSyntheticDefaultImports
+# Compile TypeScript server to JavaScript using dedicated server config
+RUN npx tsc --project tsconfig.server.json
 
 # Production stage
 FROM node:20-alpine

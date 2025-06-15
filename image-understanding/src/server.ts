@@ -5,8 +5,13 @@
 
 import express from 'express';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import compression from 'compression';
 import { GoogleAuth } from 'google-auth-library';
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 const port = process.env.PORT || 8080;
