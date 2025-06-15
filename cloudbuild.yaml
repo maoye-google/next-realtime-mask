@@ -1,0 +1,160 @@
+# Main Cloud Build configuration for media understanding applications
+# This builds and deploys both services based on file changes
+
+steps:
+  # Determine which services need to be built based on file changes
+  - name: 'gcr.io/cloud-builders/git'
+    id: 'Check Changes'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "Checking which services have changed..."
+        
+        # Check for changes in each service directory
+        if git diff --name-only HEAD~1 HEAD | grep -E '^image-understanding/'; then
+          echo "image-understanding" > /workspace/changed_services.txt
+        fi
+        
+        if git diff --name-only HEAD~1 HEAD | grep -E '^video-understanding/'; then
+          echo "video-understanding" >> /workspace/changed_services.txt || echo "video-understanding" > /workspace/changed_services.txt
+        fi
+        
+        # If k8s files changed, rebuild both services
+        if git diff --name-only HEAD~1 HEAD | grep -E '^k8s/'; then
+          echo "image-understanding" > /workspace/changed_services.txt
+          echo "video-understanding" >> /workspace/changed_services.txt
+        fi
+        
+        # If this is the first commit or no changed_services.txt exists, build both
+        if [ ! -f /workspace/changed_services.txt ]; then
+          echo "image-understanding" > /workspace/changed_services.txt
+          echo "video-understanding" >> /workspace/changed_services.txt
+        fi
+        
+        echo "Services to build:"
+        cat /workspace/changed_services.txt || echo "No services to build"
+
+  # Build image-understanding if it changed
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Image Understanding'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if grep -q "image-understanding" /workspace/changed_services.txt; then
+          echo "Building image-understanding..."
+          docker build -t gcr.io/${PROJECT_ID}/image-understanding:${SHORT_SHA} ./image-understanding
+          docker tag gcr.io/${PROJECT_ID}/image-understanding:${SHORT_SHA} gcr.io/${PROJECT_ID}/image-understanding:latest
+        else
+          echo "Skipping image-understanding build"
+        fi
+    waitFor: ['Check Changes']
+
+  # Build video-understanding if it changed
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Video Understanding'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if grep -q "video-understanding" /workspace/changed_services.txt; then
+          echo "Building video-understanding..."
+          docker build -t gcr.io/${PROJECT_ID}/video-understanding:${SHORT_SHA} ./video-understanding
+          docker tag gcr.io/${PROJECT_ID}/video-understanding:${SHORT_SHA} gcr.io/${PROJECT_ID}/video-understanding:latest
+        else
+          echo "Skipping video-understanding build"
+        fi
+    waitFor: ['Check Changes']
+
+  # Run security scan on images
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Security Scan'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -f /workspace/changed_services.txt ]; then
+          for service in $(cat /workspace/changed_services.txt); do
+            echo "Scanning $service for vulnerabilities..."
+            gcloud artifacts docker images scan gcr.io/${PROJECT_ID}/$service:${SHORT_SHA} \
+              --location=us-central1 --format=json > /workspace/$service-scan-results.json
+          done
+        fi
+    waitFor: ['Build Image Understanding', 'Build Video Understanding']
+
+  # Push images to registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Images'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if [ -f /workspace/changed_services.txt ]; then
+          for service in $(cat /workspace/changed_services.txt); do
+            echo "Pushing $service..."
+            docker push gcr.io/${PROJECT_ID}/$service:${SHORT_SHA}
+            docker push gcr.io/${PROJECT_ID}/$service:latest
+          done
+        fi
+    waitFor: ['Security Scan']
+
+  # Deploy to GKE
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy to GKE'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        
+        # Configure kubectl
+        gcloud container clusters get-credentials ${_GKE_CLUSTER} \
+          --zone ${_GKE_ZONE} \
+          --project ${PROJECT_ID}
+        
+        if [ -f /workspace/changed_services.txt ]; then
+          # Update image tags in manifests and deploy
+          cd k8s
+          
+          for service in $(cat /workspace/changed_services.txt); do
+            echo "Deploying $service..."
+            
+            # Update the image tag in the deployment manifest
+            sed -i "s|gcr.io/PROJECT_ID/$service:v1.0.0|gcr.io/${PROJECT_ID}/$service:${SHORT_SHA}|g" *-$service.yaml
+            
+            # Apply the updated manifest
+            kubectl apply -f 00-namespace.yaml
+            # Secrets should be applied manually or via secret manager, not in CI/CD
+            # kubectl apply -f 01-secrets.yaml.template
+            kubectl apply -f 02-configmap.yaml
+            kubectl apply -f 07-workload-identity.yaml
+            kubectl apply -f *-$service.yaml
+            kubectl apply -f 05-ingress.yaml
+            kubectl apply -f 06-hpa.yaml
+            
+            # Wait for rollout
+            kubectl rollout status deployment/$service -n media-understanding --timeout=300s
+          done
+          
+          echo "Deployment completed successfully!"
+        else
+          echo "No services to deploy"
+        fi
+    waitFor: ['Push Images']
+
+# Artifacts to store
+images:
+  - 'gcr.io/${PROJECT_ID}/image-understanding:${SHORT_SHA}'
+  - 'gcr.io/${PROJECT_ID}/video-understanding:${SHORT_SHA}'
+
+# Substitution variables
+substitutions:
+  _GKE_CLUSTER: 'media-understanding-cluster'
+  _GKE_ZONE: 'us-central1-a'
+
+# Build options
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'

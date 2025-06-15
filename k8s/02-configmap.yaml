@@ -2,7 +2,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: app-config
-  namespace: spatial-understanding
+  namespace: media-understanding
 data:
   PROJECT_ID: "your-gcp-project-id"
   NODE_ENV: "production"

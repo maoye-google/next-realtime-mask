@@ -1,0 +1,71 @@
+# Cloud Build configuration for image-understanding service
+
+steps:
+  # Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build'
+    args:
+      - 'build'
+      - '-t'
+      - 'gcr.io/${PROJECT_ID}/image-understanding:${SHORT_SHA}'
+      - '-t'
+      - 'gcr.io/${PROJECT_ID}/image-understanding:latest'
+      - '.'
+
+  # Run tests (if you have any)
+  - name: 'gcr.io/${PROJECT_ID}/image-understanding:${SHORT_SHA}'
+    id: 'Test'
+    entrypoint: 'npm'
+    args: ['test']
+    env:
+      - 'NODE_ENV=test'
+
+  # Security scan
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Security Scan'
+    entrypoint: 'gcloud'
+    args:
+      - 'artifacts'
+      - 'docker'
+      - 'images'
+      - 'scan'
+      - 'gcr.io/${PROJECT_ID}/image-understanding:${SHORT_SHA}'
+      - '--location=us-central1'
+      - '--format=json'
+
+  # Push to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'gcr.io/${PROJECT_ID}/image-understanding'
+
+  # Deploy to GKE (staging)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy Staging'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        gcloud container clusters get-credentials ${_GKE_CLUSTER} --zone ${_GKE_ZONE} --project ${PROJECT_ID}
+        
+        # Update the image tag in the manifest
+        sed "s|gcr.io/PROJECT_ID/image-understanding:v1.0.0|gcr.io/${PROJECT_ID}/image-understanding:${SHORT_SHA}|g" \
+          ../k8s/03-image-understanding.yaml | kubectl apply -f -
+        
+        kubectl rollout status deployment/image-understanding -n media-understanding
+
+# Store the image
+images:
+  - 'gcr.io/${PROJECT_ID}/image-understanding:${SHORT_SHA}'
+  - 'gcr.io/${PROJECT_ID}/image-understanding:latest'
+
+# Default substitutions
+substitutions:
+  _GKE_CLUSTER: 'media-understanding-cluster'
+  _GKE_ZONE: 'us-central1-a'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: video-understanding
-  namespace: spatial-understanding
+  namespace: media-understanding
   labels:
     app: video-understanding
 spec:
@@ -21,17 +21,13 @@ spec:
         image: gcr.io/PROJECT_ID/video-understanding:v1.0.0
         ports:
         - containerPort: 8080
+          name: http
         env:
         - name: PROJECT_ID
           valueFrom:
             configMapKeyRef:
               name: app-config
               key: PROJECT_ID
-        - name: GEMINI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: gemini-credentials
-              key: GEMINI_API_KEY
         - name: PORT
           value: "8080"
         livenessProbe:
@@ -58,7 +54,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: video-understanding-svc
-  namespace: spatial-understanding
+  namespace: media-understanding
 spec:
   selector:
     app: video-understanding

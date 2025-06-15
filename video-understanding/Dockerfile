@@ -15,24 +15,32 @@ COPY . .
 # Build the application
 RUN npm run build
 
+# Compile TypeScript server to JavaScript
+RUN npx tsc src/server.ts --outDir build --moduleResolution node --esModuleInterop --target es2020 --allowSyntheticDefaultImports
+
 # Production stage
 FROM node:20-alpine
 
+RUN apk add --no-cache dumb-init
+
 WORKDIR /app
 
-# Copy built application from build stage
+# Copy built application and dependencies
 COPY --from=build /app/dist ./dist
-COPY --from=build /app/src/server.ts ./
+COPY --from=build /app/build/server.js ./
+COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/package*.json ./
 
-# Install production dependencies
-RUN npm ci --only=production
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
 
-# Install TypeScript for running server.ts
-RUN npm install -g typescript ts-node
+# Set ownership and permissions
+RUN chown -R nextjs:nodejs /app
+USER nextjs
 
-# Expose port 8080
+# Expose port
 EXPOSE 8080
 
-# Start the server
-CMD ["ts-node", "server.ts"]
+# Start the server with dumb-init for proper signal handling
+CMD ["dumb-init", "node", "server.js"]

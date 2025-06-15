@@ -1,12 +1,12 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: spatial-understanding-ingress
-  namespace: spatial-understanding
+  name: media-understanding-ingress
+  namespace: media-understanding
   annotations:
     kubernetes.io/ingress.class: "gce"
-    networking.gke.io/managed-certificates: "spatial-understanding-ssl"
-    kubernetes.io/ingress.global-static-ip-name: "spatial-understanding-ip"
+    networking.gke.io/managed-certificates: "media-understanding-ssl"
+    kubernetes.io/ingress.global-static-ip-name: "media-understanding-ip"
 spec:
   rules:
   - host: your-domain.com

@@ -29,19 +29,19 @@ docker push gcr.io/$PROJECT_ID/video-understanding:v1.0.0
 
 ```bash
 # Create GCP Service Account
-gcloud iam service-accounts create spatial-understanding-sa \
+gcloud iam service-accounts create media-understanding-sa \
   --display-name="Spatial Understanding Service Account"
 
 # Grant necessary permissions
 gcloud projects add-iam-policy-binding $PROJECT_ID \
-  --member="serviceAccount:spatial-understanding-sa@$PROJECT_ID.iam.gserviceaccount.com" \
+  --member="serviceAccount:media-understanding-sa@$PROJECT_ID.iam.gserviceaccount.com" \
   --role="roles/aiplatform.user"
 
 # Create Kubernetes Service Account binding
 gcloud iam service-accounts add-iam-policy-binding \
-  spatial-understanding-sa@$PROJECT_ID.iam.gserviceaccount.com \
+  media-understanding-sa@$PROJECT_ID.iam.gserviceaccount.com \
   --role roles/iam.workloadIdentityUser \
-  --member "serviceAccount:$PROJECT_ID.svc.id.goog[spatial-understanding/workload-identity-sa]"
+  --member "serviceAccount:$PROJECT_ID.svc.id.goog[media-understanding/workload-identity-sa]"
 ```
 
 ### 3. Update Configuration
@@ -64,25 +64,25 @@ Edit the following files with your project-specific values:
 kubectl apply -f k8s/
 
 # Check deployment status
-kubectl get pods -n spatial-understanding
-kubectl get services -n spatial-understanding
-kubectl get ingress -n spatial-understanding
+kubectl get pods -n media-understanding
+kubectl get services -n media-understanding
+kubectl get ingress -n media-understanding
 ```
 
 ### 5. Setup SSL Certificate (Optional)
 
 ```bash
 # Create managed SSL certificate
-gcloud compute ssl-certificates create spatial-understanding-ssl \
+gcloud compute ssl-certificates create media-understanding-ssl \
   --domains=your-domain.com
 
 # Reserve static IP
-gcloud compute addresses create spatial-understanding-ip --global
+gcloud compute addresses create media-understanding-ip --global
 ```
 
 ## Architecture
 
-- **Namespace**: `spatial-understanding`
+- **Namespace**: `media-understanding`
 - **Services**: 
   - `image-understanding`: Port 8080 (Node.js + Express)
   - `video-understanding`: Port 8080 (Node.js + Express)
@@ -94,14 +94,14 @@ gcloud compute addresses create spatial-understanding-ip --global
 
 ```bash
 # View logs
-kubectl logs -f deployment/image-understanding -n spatial-understanding
-kubectl logs -f deployment/video-understanding -n spatial-understanding
+kubectl logs -f deployment/image-understanding -n media-understanding
+kubectl logs -f deployment/video-understanding -n media-understanding
 
 # Check resource usage
-kubectl top pods -n spatial-understanding
+kubectl top pods -n media-understanding
 
 # View HPA status
-kubectl get hpa -n spatial-understanding
+kubectl get hpa -n media-understanding
 ```
 
 ## Troubleshooting

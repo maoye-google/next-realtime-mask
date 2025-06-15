@@ -5,13 +5,35 @@
 
 import express from 'express';
 import path from 'path';
+import compression from 'compression';
 import { GoogleAuth } from 'google-auth-library';
 
 const app = express();
 const port = process.env.PORT || 8080;
 
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(compression()); // Enable gzip compression
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Serve static files with optimized caching
+app.use('/image', express.static(path.join(__dirname, 'dist'), {
+  maxAge: '1y',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'ok' });

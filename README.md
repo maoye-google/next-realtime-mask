@@ -1,10 +1,10 @@
-# Spatial Understanding Frontend Application
+# Media Understanding Frontend Application
 
-This is a standalone React application with AI-powered spatial understanding capabilities.
+This is a standalone React application with AI-powered media understanding capabilities.
 
 ## Overview
 
-The application provides an interactive frontend for spatial understanding tasks using modern web technologies and AI integration.
+The application provides an interactive frontend for media understanding tasks using modern web technologies and AI integration.
 
 **Technology Stack:**
 - **React 19** with TypeScript

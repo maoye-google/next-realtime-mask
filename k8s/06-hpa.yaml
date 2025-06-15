@@ -2,7 +2,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: image-understanding-hpa
-  namespace: spatial-understanding
+  namespace: media-understanding
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
@@ -22,7 +22,7 @@ apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
   name: video-understanding-hpa
-  namespace: spatial-understanding
+  namespace: media-understanding
 spec:
   scaleTargetRef:
     apiVersion: apps/v1

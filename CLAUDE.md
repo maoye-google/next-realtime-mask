@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-This is a multi-service AI-powered spatial understanding application that includes image understanding, video understanding, and an MCP (Model Context Protocol) server for AI collaboration. The application leverages Google Gemini AI for various spatial analysis tasks.
+This is a multi-service AI-powered media understanding application that includes image understanding, video understanding, and an MCP (Model Context Protocol) server for AI collaboration. The application leverages Google Gemini AI for various media analysis tasks.
 
 ## Architecture Overview
 
 ### Core Services
-- **Image Understanding** (React + Vite + TypeScript): Interactive frontend for spatial understanding tasks with drawing interactions
+- **Image Understanding** (React + Vite + TypeScript): Interactive frontend for media understanding tasks with drawing interactions
 - **Video Understanding** (React + Vite + TypeScript): Video analysis application with AI-powered content understanding
 - **MCP Server** (Python): Model Context Protocol server enabling AI collaboration between Claude and multiple AI models (Gemini, O3, OpenRouter, Ollama)
 
@@ -143,7 +143,7 @@ LOG_LEVEL=DEBUG
 ## Key Features by Service
 
 ### Image Understanding
-- Interactive spatial understanding with drawing capabilities
+- Interactive media understanding with drawing capabilities
 - Real-time AI analysis using Google Gemini
 - Image upload and analysis with example images
 - Drawing tools using Perfect Freehand
@@ -181,7 +181,7 @@ The MCP server enables Claude to:
 ### File Structure
 ```
 /
-├── image-understanding/     # React spatial understanding app
+├── image-understanding/     # React media understanding app
 ├── video-understanding/     # React video analysis app  
 ├── mcp-server/             # Python MCP server with AI collaboration
 ├── credentials/            # GCP service account keys
@@ -194,4 +194,4 @@ The MCP server enables Claude to:
 - MCP server requires Redis for conversation state management
 - Both frontend services use modern React 19 with TypeScript
 - Video understanding includes D3-based data visualization
-- Image understanding supports real-time drawing and spatial analysis
+- Image understanding supports real-time drawing and media analysis

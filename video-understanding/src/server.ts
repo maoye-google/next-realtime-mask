@@ -5,6 +5,8 @@
 
 import express from 'express';
 import path from 'path';
+import compression from 'compression';
+import { GoogleAuth } from 'google-auth-library';
 import { FunctionDeclaration, GoogleGenAI } from '@google/genai';
 import multer from 'multer';
 
@@ -14,27 +16,56 @@ const port = process.env.PORT || 8080;
 const systemInstruction = `When given a video and a query, call the relevant \
 function only once with the appropriate timecodes and text for the video`;
 
-const client = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
+// Initialize Google Auth for Workload Identity
+const auth = new GoogleAuth({
+  scopes: ['https://www.googleapis.com/auth/cloud-platform'],
 });
+
+const client = new GoogleGenAI({ auth });
 
 const upload = multer({ 
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 } // 100 MB limit
 });
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'dist')));
+app.use(express.json({ limit: '10mb' }));
+app.use(compression()); // Enable gzip compression
+
+// Security headers
+app.use((req, res, next) => {
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  next();
+});
+
+// Serve static files with optimized caching
+app.use('/video', express.static(path.join(__dirname, 'dist'), {
+  maxAge: '1y',
+  setHeaders: (res, filePath) => {
+    if (filePath.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+  }
+}));
 
 app.get('/healthz', (req, res) => {
   res.status(200).json({ status: 'ok' });
 });
 
-app.get('/readyz', (req, res) => {
-  if (process.env.GEMINI_API_KEY) {
+app.get('/readyz', async (req, res) => {
+  try {
+    await auth.getAccessToken();
     res.status(200).json({ status: 'ready' });
-  } else {
-    res.status(503).json({ status: 'not ready', error: 'missing API key' });
+  } catch (error) {
+    console.error('Readiness check failed:', error);
+    res.status(503).json({ 
+      status: 'not ready', 
+      error: 'authentication check failed' 
+    });
   }
 });
 
