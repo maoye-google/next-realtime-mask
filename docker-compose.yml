@@ -5,9 +5,10 @@ services:
       dockerfile: Dockerfile
     container_name: image-understanding
     ports:
-      - "${IMAGE_PORT:-5173}:80"
+      - "${IMAGE_PORT:-5173}:8080"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=8080
 
   video-understanding:
     build:
@@ -15,6 +16,7 @@ services:
       dockerfile: Dockerfile
     container_name: video-understanding
     ports:
-      - "${VIDEO_PORT:-9003}:80"
+      - "${VIDEO_PORT:-9003}:8080"
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PORT=8080
