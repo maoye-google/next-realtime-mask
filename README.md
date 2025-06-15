@@ -33,19 +33,16 @@ The application provides an interactive frontend for media understanding tasks u
    ```
 
 3. **Set up environment variables:**
-   Create a `.env.local` file with your configuration:
+   Create a `.env` file with your configuration:
    ```bash
-   # For Service Account authentication (recommended for production)
-   GOOGLE_APPLICATION_CREDENTIALS=./gcp-service-account.json
-   PROJECT_ID=your-gcp-project-id
-   
-   # Fallback API Key for development
+   # Gemini API Key (Primary authentication method)
+   # Get your API key from: https://makersuite.google.com/app/apikey
    GEMINI_API_KEY=your-gemini-api-key
    ```
    
-   **Authentication Options:**
-   - **Service Account (Production):** Place your GCP service account JSON file in the root directory
-   - **API Key (Development):** Use the `GEMINI_API_KEY` for quick development setup
+   **Simple Authentication:**
+   - The application now uses **GEMINI_API_KEY only** for simplified credential management
+   - No service account setup required - just get your API key from Google AI Studio
 
 4. **Start the development server:**
    ```bash
