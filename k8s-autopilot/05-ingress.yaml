@@ -12,14 +12,13 @@ metadata:
     kubernetes.io/ingress.global-static-ip-name: "${STATIC_IP_NAME}"
     # Enable NEG for better load balancing
     cloud.google.com/neg: '{"ingress": true}'
-    # SSL certificate (optional but recommended)
+    # SSL certificate (will be provisioned automatically)
     networking.gke.io/managed-certificates: "media-understanding-ssl"
+    # Force HTTPS redirect once certificate is ready
+    kubernetes.io/ingress.allow-http: "true"
 spec:
-  # Add TLS configuration to use the managed certificate
-  tls:
-  - hosts:
-    - ${INGRESS_HOSTNAME}
-    secretName: media-understanding-ssl
+  # No TLS section needed for Google-managed certificates
+  # The annotation networking.gke.io/managed-certificates handles this
   rules:
   - host: ${INGRESS_HOSTNAME}
     http:
