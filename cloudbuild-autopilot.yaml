@@ -1,0 +1,340 @@
+# Cloud Build configuration for Regional Autopilot GKE
+# Optimized for automated setup with minimal manual intervention
+
+steps:
+  # Setup infrastructure (idempotent)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Setup Infrastructure'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== Infrastructure Setup ==="
+        
+        # Ensure service account exists (idempotent)
+        echo "Checking/creating service account..."
+        if ! gcloud iam service-accounts describe ${_SERVICE_ACCOUNT_EMAIL} --project=${PROJECT_ID} >/dev/null 2>&1; then
+          gcloud iam service-accounts create ${_SERVICE_ACCOUNT_NAME} \
+            --display-name="Media Understanding Service Account" \
+            --project=${PROJECT_ID}
+          echo "✓ Service account created"
+        else
+          echo "✓ Service account already exists"
+        fi
+        
+        # Ensure IAM policy bindings (idempotent)
+        echo "Setting up IAM policies..."
+        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+          --member="serviceAccount:${_SERVICE_ACCOUNT_EMAIL}" \
+          --role="roles/aiplatform.user" \
+          --condition=None >/dev/null || echo "IAM binding already exists"
+        
+        gcloud projects add-iam-policy-binding ${PROJECT_ID} \
+          --member="serviceAccount:${_SERVICE_ACCOUNT_EMAIL}" \
+          --role="roles/storage.objectViewer" \
+          --condition=None >/dev/null || echo "Storage IAM binding already exists"
+        
+        echo "✓ Infrastructure setup complete"
+
+  # Enhanced change detection
+  - name: 'gcr.io/cloud-builders/git'
+    id: 'Check Changes'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== Change Detection ==="
+        
+        # Use more robust change detection for merge commits
+        git fetch origin ${_MAIN_BRANCH}:${_MAIN_BRANCH} 2>/dev/null || echo "Main branch fetch failed, using fallback"
+        
+        # Find the merge base for accurate change detection
+        if git rev-parse --verify ${_MAIN_BRANCH} >/dev/null 2>&1; then
+          BASE_COMMIT=$(git merge-base ${_MAIN_BRANCH} HEAD)
+          echo "Comparing against merge base: $BASE_COMMIT"
+        else
+          BASE_COMMIT="HEAD~1"
+          echo "Using fallback comparison: $BASE_COMMIT"
+        fi
+        
+        # Check for changes in each service directory
+        CHANGED_SERVICES=""
+        
+        if git diff --name-only $BASE_COMMIT HEAD | grep -E '^image-understanding/' >/dev/null; then
+          echo "✓ image-understanding has changes"
+          CHANGED_SERVICES="$CHANGED_SERVICES image-understanding"
+        fi
+        
+        if git diff --name-only $BASE_COMMIT HEAD | grep -E '^video-understanding/' >/dev/null; then
+          echo "✓ video-understanding has changes"
+          CHANGED_SERVICES="$CHANGED_SERVICES video-understanding"
+        fi
+        
+        # If k8s files changed, rebuild both services
+        if git diff --name-only $BASE_COMMIT HEAD | grep -E '^k8s/' >/dev/null; then
+          echo "✓ k8s configuration has changes - rebuilding all services"
+          CHANGED_SERVICES="image-understanding video-understanding"
+        fi
+        
+        # If cloudbuild files changed, rebuild all services
+        if git diff --name-only $BASE_COMMIT HEAD | grep -E 'cloudbuild.*\.yaml$' >/dev/null; then
+          echo "✓ cloudbuild configuration has changes - rebuilding all services"
+          CHANGED_SERVICES="image-understanding video-understanding"
+        fi
+        
+        # Default to building all services if no specific changes detected
+        if [ -z "$CHANGED_SERVICES" ]; then
+          echo "No specific changes detected, building all services"
+          CHANGED_SERVICES="image-understanding video-understanding"
+        fi
+        
+        # Write changed services to file
+        echo "$CHANGED_SERVICES" | tr ' ' '\n' | sort -u > /workspace/changed_services.txt
+        
+        echo "Services to build:"
+        cat /workspace/changed_services.txt
+    waitFor: ['Setup Infrastructure']
+
+  # Build image-understanding if it changed
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Image Understanding'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if grep -q "image-understanding" /workspace/changed_services.txt; then
+          echo "=== Building image-understanding ==="
+          docker build -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding:${SHORT_SHA} ./image-understanding
+          echo "✓ image-understanding built successfully"
+        else
+          echo "⏭️  Skipping image-understanding build"
+        fi
+    waitFor: ['Check Changes']
+
+  # Build video-understanding if it changed
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Build Video Understanding'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        if grep -q "video-understanding" /workspace/changed_services.txt; then
+          echo "=== Building video-understanding ==="
+          docker build -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:${SHORT_SHA} ./video-understanding
+          echo "✓ video-understanding built successfully"
+        else
+          echo "⏭️  Skipping video-understanding build"
+        fi
+    waitFor: ['Check Changes']
+
+  # Enhanced security scan with failure on critical vulnerabilities
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    id: 'Security Scan'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "=== Security Vulnerability Scanning ==="
+        SCAN_FAILED=false
+        
+        if [ -f /workspace/changed_services.txt ]; then
+          for service in $(cat /workspace/changed_services.txt); do
+            echo "Scanning $service for vulnerabilities..."
+            
+            # Run the scan and capture results
+            if gcloud artifacts docker images scan ${_CONTAINER_REGISTRY}/${PROJECT_ID}/$service:${SHORT_SHA} \
+              --location=${_SCAN_LOCATION} --format=json > /workspace/$service-scan-results.json; then
+              
+              # Check for critical vulnerabilities
+              CRITICAL_COUNT=$(cat /workspace/$service-scan-results.json | jq -r '.vulnerabilityOccurrences[] | select(.vulnerability.severity == "CRITICAL") | .vulnerability.severity' | wc -l)
+              HIGH_COUNT=$(cat /workspace/$service-scan-results.json | jq -r '.vulnerabilityOccurrences[] | select(.vulnerability.severity == "HIGH") | .vulnerability.severity' | wc -l)
+              
+              echo "$service scan results: $CRITICAL_COUNT critical, $HIGH_COUNT high severity vulnerabilities"
+              
+              if [ "$CRITICAL_COUNT" -gt 0 ]; then
+                echo "❌ CRITICAL vulnerabilities found in $service"
+                SCAN_FAILED=true
+              fi
+            else
+              echo "⚠️  Scan failed for $service (may not be available yet)"
+            fi
+          done
+        fi
+        
+        if [ "$SCAN_FAILED" = true ]; then
+          echo "❌ Build failed due to critical security vulnerabilities"
+          exit 1
+        fi
+        
+        echo "✅ Security scan passed"
+    waitFor: ['Build Image Understanding', 'Build Video Understanding']
+
+  # Push images to registry
+  - name: 'gcr.io/cloud-builders/docker'
+    id: 'Push Images'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "=== Pushing Images ==="
+        if [ -f /workspace/changed_services.txt ]; then
+          for service in $(cat /workspace/changed_services.txt); do
+            echo "Pushing $service:${SHORT_SHA}..."
+            docker push ${_CONTAINER_REGISTRY}/${PROJECT_ID}/$service:${SHORT_SHA}
+            echo "✓ $service pushed successfully"
+          done
+        fi
+    waitFor: ['Security Scan']
+
+  # Create/update Kubernetes secrets (choose one authentication method)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Setup Secrets'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        echo "=== Setting up Kubernetes Secrets ==="
+        
+        # Connect to cluster
+        gcloud container clusters get-credentials ${_GKE_CLUSTER} \
+          --region ${_GKE_REGION} \
+          --project ${PROJECT_ID}
+        
+        # Option 1: Service Account JSON Key (if _USE_SA_KEY=true)
+        if [ "${_USE_SA_KEY}" = "true" ]; then
+          echo "Setting up Service Account JSON key authentication..."
+          
+          # Create service account key if it doesn't exist in Secret Manager
+          if ! gcloud secrets describe ${_SA_KEY_SECRET_NAME} --project=${PROJECT_ID} >/dev/null 2>&1; then
+            echo "Creating new service account key..."
+            gcloud iam service-accounts keys create /tmp/sa-key.json \
+              --iam-account=${_SERVICE_ACCOUNT_EMAIL} \
+              --project=${PROJECT_ID}
+            
+            # Store in Secret Manager
+            gcloud secrets create ${_SA_KEY_SECRET_NAME} \
+              --data-file=/tmp/sa-key.json \
+              --project=${PROJECT_ID}
+            
+            rm /tmp/sa-key.json
+            echo "✓ Service account key stored in Secret Manager"
+          fi
+          
+          # Retrieve key from Secret Manager
+          gcloud secrets versions access latest \
+            --secret="${_SA_KEY_SECRET_NAME}" \
+            --project=${PROJECT_ID} > /workspace/sa-key.json
+          
+          # Create/update Kubernetes secret
+          kubectl create secret generic gcp-service-account-key \
+            --namespace=${_K8S_NAMESPACE} \
+            --from-file=key.json=/workspace/sa-key.json \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "✓ Kubernetes secret created/updated"
+          rm /workspace/sa-key.json
+          
+        else
+          # Option 2: Workload Identity (recommended)
+          echo "Using Workload Identity (no additional secrets needed)"
+          echo "✓ Workload Identity configuration will be applied with manifests"
+        fi
+    waitFor: ['Push Images']
+
+  # Deploy to GKE with parameterized manifests
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: 'Deploy to GKE'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -e
+        echo "=== Deploying to GKE ==="
+        
+        # Connect to regional autopilot cluster
+        gcloud container clusters get-credentials ${_GKE_CLUSTER} \
+          --region ${_GKE_REGION} \
+          --project ${PROJECT_ID}
+        
+        if [ -f /workspace/changed_services.txt ]; then
+          cd k8s-autopilot
+          
+          # Create directory for processed manifests
+          mkdir -p /workspace/processed_k8s
+          
+          # Export variables for envsubst
+          export PROJECT_ID SHORT_SHA
+          export K8S_NAMESPACE=${_K8S_NAMESPACE}
+          export SERVICE_ACCOUNT_EMAIL=${_SERVICE_ACCOUNT_EMAIL}
+          export SERVICE_ACCOUNT_NAME=${_SERVICE_ACCOUNT_NAME}
+          export CONTAINER_REGISTRY=${_CONTAINER_REGISTRY}
+          export USE_SA_KEY=${_USE_SA_KEY}
+          
+          # Process all YAML files with environment variable substitution
+          for file in *.yaml; do
+            if [ -f "$file" ]; then
+              echo "Processing $file..."
+              envsubst < "$file" > "/workspace/processed_k8s/$file"
+            fi
+          done
+          
+          # Copy and make auth script executable
+          cp apply-auth-method.sh /workspace/
+          chmod +x /workspace/apply-auth-method.sh
+          
+          # Apply authentication method configuration
+          echo "Configuring authentication method (USE_SA_KEY=${USE_SA_KEY})..."
+          /workspace/apply-auth-method.sh "${USE_SA_KEY}" "/workspace/processed_k8s"
+          
+          # Apply all processed manifests
+          echo "Applying Kubernetes manifests..."
+          kubectl apply -f /workspace/processed_k8s/
+          
+          # Wait for rollouts of changed services only
+          for service in $(cat /workspace/changed_services.txt); do
+            echo "Waiting for $service rollout..."
+            kubectl rollout status deployment/$service \
+              --namespace=${_K8S_NAMESPACE} \
+              --timeout=600s
+            echo "✓ $service deployed successfully"
+          done
+          
+          echo "✅ Deployment completed successfully!"
+        else
+          echo "No services to deploy"
+        fi
+    waitFor: ['Setup Secrets']
+
+# Store built images
+images:
+  - '${_CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding:${SHORT_SHA}'
+  - '${_CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:${SHORT_SHA}'
+
+# Enhanced substitution variables for flexibility
+substitutions:
+  # GKE Cluster Configuration
+  _GKE_CLUSTER: 'media-understanding-cluster'
+  _GKE_REGION: 'us-central1'  # Changed from zone to region for Autopilot
+  _K8S_NAMESPACE: 'media-understanding'
+  
+  # Authentication Method (choose one)
+  _USE_SA_KEY: 'false'  # Set to 'true' to use Service Account JSON key, 'false' for Workload Identity
+  
+  # Service Account Configuration
+  _SERVICE_ACCOUNT_NAME: 'media-understanding-sa'
+  _SERVICE_ACCOUNT_EMAIL: 'media-understanding-sa@${PROJECT_ID}.iam.gserviceaccount.com'
+  _SA_KEY_SECRET_NAME: 'media-understanding-sa-key'  # Name in Google Secret Manager
+  
+  # Container Registry
+  _CONTAINER_REGISTRY: 'gcr.io'  # or 'us-central1-docker.pkg.dev' for Artifact Registry
+  
+  # Build Configuration
+  _MAIN_BRANCH: 'main'
+  _SCAN_LOCATION: 'us-central1'
+
+# Autopilot-optimized build options
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_4'  # Reduced from E2_HIGHCPU_8 for cost optimization

@@ -1,0 +1,63 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: media-understanding-ingress
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/managed-by: cloud-build
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: "media-understanding-ssl"
+    kubernetes.io/ingress.global-static-ip-name: "media-understanding-ip"
+    # Autopilot-compatible annotations
+    cloud.google.com/neg: '{"ingress": true}'
+    cloud.google.com/backend-config: '{"default": "media-understanding-backendconfig"}'
+spec:
+  rules:
+  - host: your-domain.com  # Replace with actual domain
+    http:
+      paths:
+      - path: /image/*
+        pathType: Prefix
+        backend:
+          service:
+            name: image-understanding-svc
+            port:
+              number: 80
+      - path: /video/*
+        pathType: Prefix
+        backend:
+          service:
+            name: video-understanding-svc
+            port:
+              number: 80
+      - path: /
+        pathType: Exact
+        backend:
+          service:
+            name: image-understanding-svc
+            port:
+              number: 80
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: media-understanding-backendconfig
+  namespace: ${K8S_NAMESPACE}
+spec:
+  # Health check configuration for Autopilot
+  healthCheck:
+    checkIntervalSec: 15
+    timeoutSec: 10
+    healthyThreshold: 1
+    unhealthyThreshold: 3
+    type: HTTP
+    requestPath: /healthz
+    port: 8080
+  # Session affinity for better performance
+  sessionAffinity:
+    affinityType: "CLIENT_IP"
+    affinityCookieTtlSec: 3600
+  # Connection draining
+  connectionDraining:
+    drainingTimeoutSec: 60

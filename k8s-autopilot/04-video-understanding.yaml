@@ -1,0 +1,101 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-understanding
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app: video-understanding
+    app.kubernetes.io/managed-by: cloud-build
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: video-understanding
+  template:
+    metadata:
+      labels:
+        app: video-understanding
+    spec:
+      # Conditional: Use serviceAccountName only if NOT using SA key
+      serviceAccountName: workload-identity-sa
+      containers:
+      - name: video-understanding
+        image: ${CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:${SHORT_SHA}
+        ports:
+        - containerPort: 8080
+          name: http
+        env:
+        - name: PROJECT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: PROJECT_ID
+        - name: PORT
+          value: "8080"
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: NODE_ENV
+        # Conditional: Only set GOOGLE_APPLICATION_CREDENTIALS if using SA key
+        # This will be handled by a conditional manifest or post-processing
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 15
+          periodSeconds: 5
+          timeoutSeconds: 10
+          failureThreshold: 3
+        # Higher resources for video processing workloads
+        resources:
+          requests:
+            cpu: 500m      # 0.5 CPU cores
+            memory: 1Gi    # 1 GB RAM for video processing
+          limits:
+            cpu: 500m      # Same as requests for Autopilot
+            memory: 1Gi    # Same as requests for Autopilot
+        # Security context for non-root execution
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 1001
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: false  # Node.js needs write access for temp files
+        # Conditional volume mounts for SA key (will be added if USE_SA_KEY=true)
+        # volumeMounts:
+        # - name: gcp-sa-key-volume
+        #   mountPath: /var/secrets/google
+        #   readOnly: true
+      # Conditional volumes for SA key (will be added if USE_SA_KEY=true)
+      # volumes:
+      # - name: gcp-sa-key-volume
+      #   secret:
+      #     secretName: gcp-service-account-key
+      #     defaultMode: 0400
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-understanding-svc
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/managed-by: cloud-build
+spec:
+  selector:
+    app: video-understanding
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+  type: ClusterIP

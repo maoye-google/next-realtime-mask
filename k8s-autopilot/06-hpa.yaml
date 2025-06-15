@@ -1,0 +1,91 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: image-understanding-hpa
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/managed-by: cloud-build
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: image-understanding
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # Autopilot-friendly scaling behavior
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300  # 5 minutes
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 100
+        periodSeconds: 30
+      - type: Pods
+        value: 2
+        periodSeconds: 60
+      selectPolicy: Max
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: video-understanding-hpa
+  namespace: ${K8S_NAMESPACE}
+  labels:
+    app.kubernetes.io/managed-by: cloud-build
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: video-understanding
+  minReplicas: 2
+  maxReplicas: 15  # Higher max for video processing
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  # More aggressive scaling for video workloads
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 600  # 10 minutes for video workloads
+      policies:
+      - type: Percent
+        value: 15
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 0
+      policies:
+      - type: Percent
+        value: 200  # Faster scale-up for video processing
+        periodSeconds: 30
+      - type: Pods
+        value: 3
+        periodSeconds: 60
+      selectPolicy: Max
