@@ -1,5 +1,5 @@
 # Multi-stage build for video-understanding
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
 
 WORKDIR /app
 
@@ -16,19 +16,23 @@ COPY . .
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine
+FROM node:20-alpine
+
+WORKDIR /app
 
 # Copy built application from build stage
-COPY --from=build /app/dist /usr/share/nginx/html
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/src/server.ts ./
+COPY --from=build /app/package*.json ./
 
-# Create directory for service account file
-RUN mkdir -p /app
+# Install production dependencies
+RUN npm ci --only=production
 
-# Copy custom nginx configuration
-COPY nginx.conf /etc/nginx/conf.d/video-understanding.conf
+# Install TypeScript for running server.ts
+RUN npm install -g typescript ts-node
 
-# Expose port 80
-EXPOSE 80
+# Expose port 8080
+EXPOSE 8080
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Start the server
+CMD ["ts-node", "server.ts"]
