@@ -68,3 +68,8 @@ docker compose up --build
 ```
 
 The application will be available at `http://localhost:5173`
+
+
+### Google Cloud Build Command
+
+gcloud builds submit . --config=cloudbuild-autopilot.yaml --substitutions=_GEMINI_API_KEY=$GEMINI_API_KEY

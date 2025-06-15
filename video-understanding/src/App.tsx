@@ -19,7 +19,7 @@
 
 import c from 'classnames';
 import {useRef, useState} from 'react';
-import {generateContent, uploadFile} from './api';
+// Removed direct API imports - using backend endpoints instead
 import Chart from './Chart.jsx';
 import functions from './functions';
 import modes from './modes';
@@ -71,36 +71,57 @@ export default function App() {
     setIsLoading(true);
     setChartLabel(chartPrompt);
 
-    const resp = await generateContent(
-      isCustomMode
+    try {
+      const promptText = isCustomMode
         ? modes[mode].prompt(customPrompt)
         : isChartMode
           ? modes[mode].prompt(
               isCustomChartMode ? chartPrompt : modes[mode].subModes[chartMode],
             )
-          : modes[mode].prompt,
-      functions({
+          : modes[mode].prompt;
+      
+      const functionDeclarations = functions({
         set_timecodes: setTimecodes,
         set_timecodes_with_objects: setTimecodes,
         set_timecodes_with_numeric_values: ({timecodes}) =>
           setTimecodeList(timecodes),
-      }),
-      file,
-      selectedModel,
-    );
+      });
 
-    const call = resp.functionCalls?.[0];
+      // Use the backend generate endpoint with the already uploaded file
+      const formData = new FormData();
+      formData.append('text', promptText);
+      formData.append('functionDeclarations', JSON.stringify(functionDeclarations));
+      formData.append('model', selectedModel);
+      formData.append('fileUri', file.uri); // Pass the URI of the already uploaded file
+      
+      const response = await fetch('/api/video/generate-from-uploaded', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`Generation failed: ${errorData.error || response.status}`);
+      }
+      
+      const resp = await response.json();
 
-    if (call) {
-      ({
-        set_timecodes: setTimecodes,
-        set_timecodes_with_objects: setTimecodes,
-        set_timecodes_with_numeric_values: ({timecodes}) =>
-          setTimecodeList(timecodes),
-      })[call.name](call.args);
+      const call = resp.functionCalls?.[0];
+
+      if (call) {
+        ({
+          set_timecodes: setTimecodes,
+          set_timecodes_with_objects: setTimecodes,
+          set_timecodes_with_numeric_values: ({timecodes}) =>
+            setTimecodeList(timecodes),
+        })[call.name](call.args);
+      }
+    } catch (error) {
+      console.error('Error generating content:', error);
+      // TODO: Add user-facing error display
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
     scrollRef.current.scrollTo({top: 0});
   };
 
@@ -112,10 +133,23 @@ export default function App() {
     const file = e.dataTransfer.files[0];
 
     try {
-      const res = await uploadFile(file);
+      const formData = new FormData();
+      formData.append('video', file);
+      
+      const response = await fetch('/api/video/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Upload failed: ${response.status}`);
+      }
+      
+      const res = await response.json();
       setFile(res);
       setIsLoadingVideo(false);
     } catch (e) {
+      console.error('Video upload error:', e);
       setVideoError(true);
     }
   };

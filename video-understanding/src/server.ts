@@ -198,6 +198,59 @@ app.post('/api/video/upload', upload.single('video'), async (req, res) => {
   }
 });
 
+app.post('/api/video/generate-from-uploaded', async (req, res) => {
+  try {
+    const { text, functionDeclarations, model = 'gemini-2.0-flash-exp', fileUri } = req.body;
+
+    if (!text || !functionDeclarations || !fileUri) {
+      return res.status(400).json({ error: 'Missing required fields: text, functionDeclarations, fileUri' });
+    }
+
+    let tools;
+    try {
+      tools = [{ functionDeclarations: JSON.parse(functionDeclarations) }];
+    } catch (e) {
+      return res.status(400).json({ error: 'Invalid functionDeclarations format. Must be a valid JSON string.' });
+    }
+
+    // Get file info from the URI (it should already be processed)
+    const fileName = fileUri.split('/').pop(); // Extract file name from URI
+    const getFile = await client.files.get({ name: fileName });
+
+    if (getFile.state !== 'ACTIVE') {
+      return res.status(400).json({ error: 'File is not ready for processing. Please upload again.' });
+    }
+
+    const response = await client.models.generateContent({
+      model,
+      contents: [
+        {
+          role: 'user',
+          parts: [
+            { text },
+            {
+              fileData: {
+                mimeType: getFile.mimeType,
+                fileUri: getFile.uri,
+              },
+            },
+          ],
+        },
+      ],
+      config: {
+        systemInstruction,
+        temperature: 0.5,
+        tools,
+      },
+    });
+
+    res.json(response);
+  } catch (error) {
+    console.error('Error generating content from uploaded file:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 app.get('/video/*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
