@@ -6,38 +6,57 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: cloud-build
   annotations:
+    # Use modern ingress class specification
     kubernetes.io/ingress.class: "gce"
-    networking.gke.io/managed-certificates: "media-understanding-ssl"
+    # Static IP binding - this is the critical annotation
     kubernetes.io/ingress.global-static-ip-name: "${STATIC_IP_NAME}"
-    # Autopilot-compatible annotations
+    # Enable NEG for better load balancing
     cloud.google.com/neg: '{"ingress": true}'
-    cloud.google.com/backend-config: '{"default": "media-understanding-backendconfig"}'
+    # SSL certificate (optional but recommended)
+    networking.gke.io/managed-certificates: "media-understanding-ssl"
 spec:
+  # Add TLS configuration to use the managed certificate
+  tls:
+  - hosts:
+    - ${INGRESS_HOSTNAME}
+    secretName: media-understanding-ssl
   rules:
   - host: ${INGRESS_HOSTNAME}
     http:
       paths:
-      - path: /image/*
+      # Order matters - more specific paths first
+      - path: /image
         pathType: Prefix
         backend:
           service:
             name: image-understanding-svc
             port:
               number: 80
-      - path: /video/*
+      - path: /video
         pathType: Prefix
         backend:
           service:
             name: video-understanding-svc
             port:
               number: 80
+      # Default root path
       - path: /
-        pathType: Exact
+        pathType: Prefix
         backend:
           service:
             name: image-understanding-svc
             port:
               number: 80
+---
+# Managed SSL certificate for HTTPS
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: media-understanding-ssl
+  namespace: ${K8S_NAMESPACE}
+spec:
+  domains:
+  - ${INGRESS_HOSTNAME}
 ---
 apiVersion: cloud.google.com/v1
 kind: BackendConfig
