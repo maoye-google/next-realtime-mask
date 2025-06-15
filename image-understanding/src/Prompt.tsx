@@ -25,7 +25,7 @@ import {
   BoundingBoxMasksAtom,
   BoundingBoxes2DAtom,
   BoundingBoxes3DAtom,
-  CustomPromptsAtom,
+  // CustomPromptsAtom, // Removed unused import
   DetectTypeAtom,
   HoverEnteredAtom,
   ImageSrcAtom,
@@ -62,7 +62,7 @@ export function Prompt() {
   const [selectedModel] = useAtom(SelectedModelAtom);
 
   const [prompts, setPrompts] = useAtom(PromptsAtom);
-  const [customPrompts, setCustomPrompts] = useAtom(CustomPromptsAtom);
+  // Removed unused customPrompts state
 
   const is2d = detectType === '2D bounding boxes';
 
