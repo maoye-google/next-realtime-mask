@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: spatial-understanding-ingress
+  namespace: spatial-understanding
+  annotations:
+    kubernetes.io/ingress.class: "gce"
+    networking.gke.io/managed-certificates: "spatial-understanding-ssl"
+    kubernetes.io/ingress.global-static-ip-name: "spatial-understanding-ip"
+spec:
+  rules:
+  - host: your-domain.com
+    http:
+      paths:
+      - path: /image/*
+        pathType: Prefix
+        backend:
+          service:
+            name: image-understanding-svc
+            port:
+              number: 80
+      - path: /video/*
+        pathType: Prefix
+        backend:
+          service:
+            name: video-understanding-svc
+            port:
+              number: 80
+      - path: /
+        pathType: Exact
+        backend:
+          service:
+            name: image-understanding-svc
+            port:
+              number: 80

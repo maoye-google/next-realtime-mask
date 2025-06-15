@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: video-understanding
+  namespace: spatial-understanding
+  labels:
+    app: video-understanding
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: video-understanding
+  template:
+    metadata:
+      labels:
+        app: video-understanding
+    spec:
+      serviceAccountName: workload-identity-sa
+      containers:
+      - name: video-understanding
+        image: gcr.io/PROJECT_ID/video-understanding:v1.0.0
+        ports:
+        - containerPort: 8080
+        env:
+        - name: PROJECT_ID
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: PROJECT_ID
+        - name: GEMINI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: gemini-credentials
+              key: GEMINI_API_KEY
+        - name: PORT
+          value: "8080"
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /readyz
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          requests:
+            cpu: 100m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: video-understanding-svc
+  namespace: spatial-understanding
+spec:
+  selector:
+    app: video-understanding
+  ports:
+  - port: 80
+    targetPort: 8080
+  type: ClusterIP
