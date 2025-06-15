@@ -8,13 +8,13 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "gce"
     networking.gke.io/managed-certificates: "media-understanding-ssl"
-    kubernetes.io/ingress.global-static-ip-name: "media-understanding-ip"
+    kubernetes.io/ingress.global-static-ip-name: "${STATIC_IP_NAME}"
     # Autopilot-compatible annotations
     cloud.google.com/neg: '{"ingress": true}'
     cloud.google.com/backend-config: '{"default": "media-understanding-backendconfig"}'
 spec:
   rules:
-  - host: your-domain.com  # Replace with actual domain
+  - host: ${INGRESS_HOSTNAME}
     http:
       paths:
       - path: /image/*

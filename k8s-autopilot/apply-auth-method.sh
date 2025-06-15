@@ -8,6 +8,7 @@ USE_SA_KEY=${1:-false}
 PROCESSED_DIR=${2:-/workspace/processed_k8s}
 
 echo "Applying authentication method: USE_SA_KEY=${USE_SA_KEY}"
+echo "Environment variables: SHORT_SHA=${SHORT_SHA}, PROJECT_ID=${PROJECT_ID}"
 
 if [ "${USE_SA_KEY}" = "true" ]; then
     echo "Configuring for Service Account JSON key authentication..."
@@ -17,8 +18,32 @@ if [ "${USE_SA_KEY}" = "true" ]; then
         if [ -f "$deployment_file" ]; then
             echo "Processing $deployment_file for SA key authentication..."
             
-            # Add GOOGLE_APPLICATION_CREDENTIALS environment variable
-            sed -i '/- name: NODE_ENV/a \        - name: GOOGLE_APPLICATION_CREDENTIALS\n          value: "/var/secrets/google/key.json"' "$deployment_file"
+            echo "=== BEFORE MODIFICATION ==="
+            cat -n "$deployment_file" | head -30
+            echo "=== END BEFORE ==="
+            
+            # Add GOOGLE_APPLICATION_CREDENTIALS environment variable after NODE_ENV block (with idempotency check)
+            if ! grep -q "name: GOOGLE_APPLICATION_CREDENTIALS" "$deployment_file"; then
+                sed -i '/key: NODE_ENV/a\
+        - name: GOOGLE_APPLICATION_CREDENTIALS\
+          value: "/var/secrets/google/key.json"' "$deployment_file"
+                echo "✓ Added GOOGLE_APPLICATION_CREDENTIALS environment variable"
+            else
+                echo "✓ GOOGLE_APPLICATION_CREDENTIALS already exists, skipping"
+            fi
+            
+            echo "=== AFTER ENV VAR ADDITION ==="
+            cat -n "$deployment_file" | head -30
+            echo "=== END AFTER ENV ==="
+            
+            # Verify that image tag is complete - if SHORT_SHA is missing, use Cloud Build SHORT_SHA
+            if grep -q "image:.*:$" "$deployment_file"; then
+                echo "⚠️  Detected incomplete image tag, fixing with SHORT_SHA..."
+                # Use SHORT_SHA from Cloud Build environment, fallback to git SHA
+                ACTUAL_SHA=${SHORT_SHA:-$(git rev-parse --short HEAD 2>/dev/null || echo "latest")}
+                sed -i "s|image: \(.*\):$|image: \1:${ACTUAL_SHA}|g" "$deployment_file"
+                echo "✓ Fixed image tag with SHA: ${ACTUAL_SHA}"
+            fi
             
             # Uncomment and add volume mounts
             sed -i 's/        # volumeMounts:/        volumeMounts:/' "$deployment_file"
@@ -35,6 +60,10 @@ if [ "${USE_SA_KEY}" = "true" ]; then
             
             # Remove serviceAccountName since we're not using Workload Identity
             sed -i '/serviceAccountName: workload-identity-sa/d' "$deployment_file"
+            
+            echo "=== FINAL RESULT ==="
+            cat -n "$deployment_file"
+            echo "=== END FINAL ==="
         fi
     done
     

@@ -6,7 +6,8 @@ export default defineConfig(({ mode }) => {
     return {
       base: '/video/',
       define: {
-        // No API keys exposed to client-side
+        'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || ''),
+        'process.env.API_KEY': JSON.stringify(env.API_KEY || ''),
       },
       resolve: {
         alias: {
