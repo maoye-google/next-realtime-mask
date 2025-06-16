@@ -155,13 +155,14 @@ steps:
           echo "Creating placeholder secret that needs to be updated manually."
           GEMINI_KEY="your-gemini-api-key-here"
         else
+          echo "Assinging new value to GEMINI_KEY"
           GEMINI_KEY="${_GEMINI_API_KEY}"
         fi
         
         # Create/update Kubernetes secret for Gemini API key
         kubectl create secret generic gemini-credentials \
           --namespace=${_K8S_NAMESPACE} \
-          --from-literal=GEMINI_API_KEY="$$GEMINI_KEY" \
+          --from-literal=GEMINI_API_KEY="$${GEMINI_KEY}" \
           --dry-run=client -o yaml | kubectl apply -f -
         
         echo "✓ Gemini API key secret created/updated"
@@ -216,6 +217,12 @@ steps:
           # Apply all processed manifests
           echo "Applying Kubernetes manifests..."
           kubectl apply -f /workspace/processed_k8s/
+          
+          # Force restart deployments to pick up updated secrets
+          for service in $(cat /workspace/changed_services.txt); do
+            echo "Restarting $service to pick up updated secrets..."
+            kubectl rollout restart deployment/$service --namespace=${_K8S_NAMESPACE}
+          done
           
           # Wait for rollouts of changed services only
           for service in $$(cat /workspace/changed_services.txt); do
