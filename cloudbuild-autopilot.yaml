@@ -184,9 +184,9 @@ steps:
           echo "=== END DEBUG ==="
           
           # Check if GEMINI_API_KEY was properly substituted, if not manually replace it
-          if grep -q '${GEMINI_API_KEY}' /workspace/processed_k8s/01-secrets.yaml; then
+          if grep -q '$${GEMINI_API_KEY}' /workspace/processed_k8s/01-secrets.yaml; then
             echo "⚠️  GEMINI_API_KEY not properly substituted by envsubst, manually replacing..."
-            sed -i "s/\${GEMINI_API_KEY}/${_GEMINI_API_KEY:-your-gemini-api-key-here-123}/g" /workspace/processed_k8s/01-secrets.yaml
+            sed -i "s/$${GEMINI_API_KEY}/${_GEMINI_API_KEY:-your-gemini-api-key-here-123}/g" /workspace/processed_k8s/01-secrets.yaml
             echo "=== DEBUG: After manual replacement ==="
             cat /workspace/processed_k8s/01-secrets.yaml
             echo "=== END DEBUG ==="
