@@ -105,8 +105,12 @@ export default function App() {
       }
       
       const resp = await response.json();
+      // console.log(resp)
 
-      const call = resp.functionCalls?.[0];
+      // Extract function call from Gemini response structure
+      const call = resp.candidates?.[0]?.content?.parts?.find(part => part.functionCall)?.functionCall;
+
+      // console.log(call)
 
       if (call) {
         ({

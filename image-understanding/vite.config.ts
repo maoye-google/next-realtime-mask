@@ -19,7 +19,7 @@ export default defineConfig(({ mode }) => {
       server: {
         proxy: {
           '/api': {
-            target: 'http://localhost:3001',
+            target: 'http://localhost:5173',
             changeOrigin: true,
             configure: (proxy, options) => {
               // Fallback for development when backend is not available

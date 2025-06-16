@@ -25,6 +25,10 @@ const client = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY
 });
 
+// Configure middleware
+app.use(express.json({ limit: '100mb' })); // Increase limit for base64 image data
+app.use(compression()); // Enable gzip compression
+
 // Helper function to wait for video file processing
 async function waitForFileProcessing(fileName: string) {
   let getFile = await client.files.get({ name: fileName });
@@ -54,9 +58,6 @@ const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 100 * 1024 * 1024 } // 100 MB limit
 });
-
-app.use(express.json({ limit: '10mb' }));
-app.use(compression()); // Enable gzip compression
 
 // Security headers
 app.use((req, res, next) => {
@@ -101,7 +102,7 @@ app.get('/readyz', async (req, res) => {
 
 app.post('/api/video/generate', upload.single('video'), async (req, res) => {
   try {
-    const { text, functionDeclarations, model = 'gemini-2.0-flash-exp' } = req.body;
+    const { text, functionDeclarations, model = 'gemini-2.5-flash-001' } = req.body;
     const videoFile = req.file;
 
     if (!videoFile) {
@@ -198,9 +199,16 @@ app.post('/api/video/upload', upload.single('video'), async (req, res) => {
   }
 });
 
-app.post('/api/video/generate-from-uploaded', async (req, res) => {
+app.post('/api/video/generate-from-uploaded', upload.none(), async (req, res) => {
   try {
-    const { text, functionDeclarations, model = 'gemini-2.0-flash-exp', fileUri } = req.body;
+    // console.log('Raw request body:', req.body);
+    // console.log('Content-Type:', req.headers['content-type']);
+    
+    const { text, functionDeclarations, model = 'gemini-2.5-flash-001', fileUri } = req.body;
+    // console.log('Processing video...');
+    // console.log('text='+text);
+    // console.log('functionDeclarations='+functionDeclarations);
+    // console.log('fileUri='+fileUri);
 
     if (!text || !functionDeclarations || !fileUri) {
       return res.status(400).json({ error: 'Missing required fields: text, functionDeclarations, fileUri' });

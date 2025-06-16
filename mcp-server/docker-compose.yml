@@ -71,9 +71,10 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     volumes:
-      - mcp_logs:/tmp  # Shared volume for logs
+      - mcp_logs:/tmp:rw  # Shared volume for logs with explicit read-write
     entrypoint: ["python"]
     command: ["log_monitor.py"]
+    user: "0:0"  # Run as root to ensure write permissions
 
 volumes:
   redis_data:

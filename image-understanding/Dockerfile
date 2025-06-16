@@ -39,6 +39,8 @@ RUN addgroup -g 1001 -S nodejs && \
 RUN chown -R nextjs:nodejs /app
 USER nextjs
 
+ENV PORT=8080
+
 # Expose port
 EXPOSE 8080
 
