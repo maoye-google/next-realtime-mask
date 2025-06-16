@@ -47,8 +47,8 @@ steps:
         if grep -q "image-understanding" /workspace/changed_services.txt; then
           echo "=== Building image-understanding ==="
           # Ensure SHORT_SHA is set, fallback to git commit SHA
-          docker build --no-cache -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding:latest ./image-understanding
-          echo "✓ image-understanding built successfully with tag: latest"
+          docker build --no-cache -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/image-understanding:${SHORT_SHA} ./image-understanding
+          echo "✓ image-understanding built successfully with tag: ${SHORT_SHA}"
         else
           echo "⏭️  Skipping image-understanding build"
         fi
@@ -64,8 +64,8 @@ steps:
         if grep -q "video-understanding" /workspace/changed_services.txt; then
           echo "=== Building video-understanding ==="
           # Ensure SHORT_SHA is set, fallback to git commit SHA
-          docker build --no-cache -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:latest ./video-understanding
-          echo "✓ video-understanding built successfully with tag: latest"
+          docker build --no-cache -t ${_CONTAINER_REGISTRY}/${PROJECT_ID}/video-understanding:${SHORT_SHA} ./video-understanding
+          echo "✓ video-understanding built successfully with tag: ${SHORT_SHA}"
         else
           echo "⏭️  Skipping video-understanding build"
         fi
@@ -86,7 +86,7 @@ steps:
             echo "Scanning $$service for vulnerabilities..."
             
             # Run the scan and capture results  
-            if gcloud artifacts docker images scan ${_CONTAINER_REGISTRY}/${PROJECT_ID}/$$service:latest \
+            if gcloud artifacts docker images scan ${_CONTAINER_REGISTRY}/${PROJECT_ID}/$$service:${SHORT_SHA} \
               --location=${_SCAN_LOCATION} --format=json > /workspace/$$service-scan-results.json; then
               
               # Check for critical vulnerabilities
@@ -123,52 +123,12 @@ steps:
         echo "=== Pushing Images ==="
         if [ -f /workspace/changed_services.txt ]; then
           for service in $$(cat /workspace/changed_services.txt); do
-            echo "Pushing $$service:latest..."
-            docker push ${_CONTAINER_REGISTRY}/${PROJECT_ID}/$$service:latest
+            echo "Pushing $$service:${SHORT_SHA}..."
+            docker push ${_CONTAINER_REGISTRY}/${PROJECT_ID}/$$service:${SHORT_SHA}
             echo "✓ $$service pushed successfully"
           done
         fi
     waitFor: ['Security Scan']
-
-  # Create/update Kubernetes secrets (choose one authentication method)
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    id: 'Setup Secrets'
-    entrypoint: 'bash'
-    args:
-      - '-c'
-      - |
-        echo "=== Setting up Kubernetes Secrets ==="
-        
-        # Connect to cluster
-        gcloud container clusters get-credentials ${_GKE_CLUSTER} \
-          --region ${_GKE_REGION} \
-          --project ${PROJECT_ID}
-        
-        # Ensure namespace exists
-        kubectl create namespace ${_K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
-        
-        # Create/update Gemini API key secret
-        echo "Setting up GEMINI_API_KEY secret..."
-        
-        if [ -z "${_GEMINI_API_KEY}" ]; then
-          echo "⚠️  Warning: _GEMINI_API_KEY not set. Please set it in Cloud Build substitution variables."
-          echo "Creating placeholder secret that needs to be updated manually."
-          GEMINI_KEY="your-gemini-api-key-here"
-        else
-          echo "Assinging new value to GEMINI_KEY"
-          GEMINI_KEY="${_GEMINI_API_KEY}"
-        fi
-
-        echo "New value is to $${GEMINI_KEY}"
-        
-        # Create/update Kubernetes secret for Gemini API key
-        kubectl create secret generic gemini-credentials \
-          --namespace=${_K8S_NAMESPACE} \
-          --from-literal=GEMINI_API_KEY="$${GEMINI_KEY}" \
-          --dry-run=client -o yaml | kubectl apply -f -
-        
-        echo "✓ Gemini API key secret created/updated"
-    waitFor: ['Push Images']
 
   # Deploy to GKE with parameterized manifests
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
@@ -185,6 +145,9 @@ steps:
           --region ${_GKE_REGION} \
           --project ${PROJECT_ID}
         
+        # Ensure namespace exists
+        kubectl create namespace ${_K8S_NAMESPACE} --dry-run=client -o yaml | kubectl apply -f -
+        
         if [ -f /workspace/changed_services.txt ]; then
           cd k8s-autopilot
           
@@ -193,11 +156,12 @@ steps:
           
           # Export variables for envsubst - assign built-in Cloud Build variables properly
           export PROJECT_ID=${PROJECT_ID}
-          export SHORT_SHA="latest"  # Use consistent tag with build steps
+          export SHORT_SHA=${SHORT_SHA}  # Use git commit SHA for deployment
           export K8S_NAMESPACE=${_K8S_NAMESPACE}
           export CONTAINER_REGISTRY=${_CONTAINER_REGISTRY}
           export STATIC_IP_NAME=${_STATIC_IP_NAME}
           export INGRESS_HOSTNAME=${_INGRESS_HOSTNAME}
+          export GEMINI_API_KEY="${_GEMINI_API_KEY:-your-gemini-api-key-here}"
           
           # Install envsubst if not available
           if ! command -v envsubst >/dev/null 2>&1; then
@@ -254,7 +218,7 @@ steps:
         else
           echo "No services to deploy"
         fi
-    waitFor: ['Setup Secrets']
+    waitFor: ['Push Images']
 
 # Store built images
 images:
