@@ -158,6 +158,8 @@ steps:
           echo "Assinging new value to GEMINI_KEY"
           GEMINI_KEY="${_GEMINI_API_KEY}"
         fi
+
+        echo "New value is to $${GEMINI_KEY}"
         
         # Create/update Kubernetes secret for Gemini API key
         kubectl create secret generic gemini-credentials \
