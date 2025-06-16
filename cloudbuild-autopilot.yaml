@@ -161,7 +161,7 @@ steps:
           export CONTAINER_REGISTRY=${_CONTAINER_REGISTRY}
           export STATIC_IP_NAME=${_STATIC_IP_NAME}
           export INGRESS_HOSTNAME=${_INGRESS_HOSTNAME}
-          export GEMINI_API_KEY="${_GEMINI_API_KEY:-your-gemini-api-key-here-123}"
+          export GEMINI_API_KEY="${_GEMINI_API_KEY}"
           
           # Install envsubst if not available
           if ! command -v envsubst >/dev/null 2>&1; then
