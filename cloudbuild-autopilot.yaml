@@ -161,7 +161,7 @@ steps:
           export CONTAINER_REGISTRY=${_CONTAINER_REGISTRY}
           export STATIC_IP_NAME=${_STATIC_IP_NAME}
           export INGRESS_HOSTNAME=${_INGRESS_HOSTNAME}
-          export GEMINI_API_KEY="${_GEMINI_API_KEY:-your-gemini-api-key-here}"
+          export GEMINI_API_KEY="${_GEMINI_API_KEY:-your-gemini-api-key-here-123}"
           
           # Install envsubst if not available
           if ! command -v envsubst >/dev/null 2>&1; then
@@ -177,6 +177,22 @@ steps:
               envsubst < "$$file" > "/workspace/processed_k8s/$$file"
             fi
           done
+          
+          # Debug: Print the processed secrets.yaml content
+          echo "=== DEBUG: Processed secrets.yaml content ==="
+          cat /workspace/processed_k8s/01-secrets.yaml
+          echo "=== END DEBUG ==="
+          
+          # Check if GEMINI_API_KEY was properly substituted, if not manually replace it
+          if grep -q '${GEMINI_API_KEY}' /workspace/processed_k8s/01-secrets.yaml; then
+            echo "⚠️  GEMINI_API_KEY not properly substituted by envsubst, manually replacing..."
+            sed -i "s/\${GEMINI_API_KEY}/${_GEMINI_API_KEY:-your-gemini-api-key-here-123}/g" /workspace/processed_k8s/01-secrets.yaml
+            echo "=== DEBUG: After manual replacement ==="
+            cat /workspace/processed_k8s/01-secrets.yaml
+            echo "=== END DEBUG ==="
+          else
+            echo "✓ GEMINI_API_KEY properly substituted"
+          fi
           
           # No authentication script needed - using simple GEMINI_API_KEY
           
