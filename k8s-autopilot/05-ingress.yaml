@@ -31,7 +31,21 @@ spec:
             name: image-understanding-svc
             port:
               number: 80
+      - path: /api/image
+        pathType: Prefix
+        backend:
+          service:
+            name: image-understanding-svc
+            port:
+              number: 80
       - path: /video
+        pathType: Prefix
+        backend:
+          service:
+            name: video-understanding-svc
+            port:
+              number: 80
+      - path: /api/video
         pathType: Prefix
         backend:
           service:
